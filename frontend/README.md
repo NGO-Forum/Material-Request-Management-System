@@ -1,16 +1,46 @@
-# React + Vite
+# Berry Free Vue Material Admin Template 
+#### Preview
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+- [Demo](https://themewagon.github.io/berry-vue/)
 
-Currently, two official plugins are available:
+#### Download
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- [Download from ThemeWagon](https://themewagon.com/themes/berry-vue/)
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Clone Repository
 
-## Expanding the ESLint configuration
+```
+git clone https://github.com/themewagon/berry-vue.git
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+2. Install Dependencies
+
+```
+npm i
+```
+
+3. Run the development server:
+
+```bash
+npm run start
+# or
+yarn start
+# or
+pnpm start
+# or
+bun start
+```
+
+## Author
+
+```
+Berry is developed by Team CodedThemes.
+```
+
+## License
+
+- Design and Code is Copyright &copy; [CodedThemes](https://codedthemes.com).
+- Licensed cover under [MIT]
+- Distributed by [ThemeWagon](https://themewagon.com)
