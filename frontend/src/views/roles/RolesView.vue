@@ -5,7 +5,7 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Roles Management</h1>
-          <v-btn color="primary"  @click="openDialog()">
+          <v-btn color="primary" @click="openDialog()">
             <PlusIcon class="mr-2" :size="20" />
             Add Role
           </v-btn>
@@ -26,7 +26,7 @@
           </v-card-title>
 
           <v-data-table
-            :headers="headers"
+            :headers="visibleHeaders"
             :items="roles"
             :search="search"
             :loading="loading"
@@ -36,7 +36,7 @@
             density="compact"
             :sort-by="[{ key: 'created_at', order: 'desc' }]"
           >
-            <!-- Role Name - Original Case Preserved -->
+            <!-- Role Name -->
             <template #item.name="{ item }">
               <v-chip
                 :color="getRoleColor(item.name)"
@@ -48,6 +48,7 @@
               </v-chip>
             </template>
 
+            <!-- Description (only visible when header exists) -->
             <template #item.description="{ item }">
               <span class="text-caption">{{ item.description || '—' }}</span>
             </template>
@@ -173,7 +174,7 @@
           </v-card>
         </v-dialog>
 
-        <!-- Snackbar - Perfect Success/Error Icons -->
+        <!-- Snackbar -->
         <v-snackbar
           v-model="snackbar.show"
           :color="snackbar.color"
@@ -193,10 +194,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
+import { useDisplay } from "vuetify"; // ← This is the correct import
 import axiosClient from "@/plugins/axios";
 
-// All icons exist in vue-tabler-icons (2025 version)
 import {
   ShieldIcon,
   PlusIcon,
@@ -251,14 +252,27 @@ const nameRules = [
   (v: string) => (v && v.length >= 2) || "Minimum 2 characters"
 ];
 
-const headers = [
+// Base headers
+const baseHeaders = [
   { title: "Role", key: "name", width: 180 },
   { title: "Description", key: "description" },
   { title: "Created", key: "created_at", width: 150 },
   { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 }
 ];
 
-onMounted(() => loadRoles());
+// Responsive headers using Vuetify's useDisplay (recommended & reactive)
+const { mdAndUp } = useDisplay();
+
+const visibleHeaders = computed(() => {
+  return mdAndUp.value
+    ? baseHeaders
+    : baseHeaders.filter(h => h.key !== "description");
+});
+
+onMounted(() => {
+  loadRoles();
+  // No need for manual resize listener — useDisplay() handles it automatically
+});
 
 const loadRoles = async () => {
   try {
@@ -329,7 +343,7 @@ const saveRole = async () => {
 
   try {
     saving.value = true;
-    const payload = { name: form.value.name, description: form.value.description || null };
+    const payload = { name: form.value.name.trim(), description: form.value.description || null };
 
     if (form.value.id) {
       const res = await axiosClient.put(`/roles/${form.value.id}`, payload);

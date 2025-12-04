@@ -5,9 +5,7 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Departments Management</h1>
-
-          <!-- Clean, beautiful button — same as RolesView -->
-          <v-btn color="primary"  @click="openDialog()">
+          <v-btn color="primary" @click="openDialog()">
             <PlusIcon class="mr-2" :size="20" />
             Add Department
           </v-btn>
@@ -28,7 +26,7 @@
           </v-card-title>
 
           <v-data-table
-            :headers="headers"
+            :headers="visibleHeaders"
             :items="departments"
             :search="search"
             :loading="loading"
@@ -38,7 +36,6 @@
             density="compact"
             :sort-by="[{ key: 'created_at', order: 'desc' }]"
           >
-            <!-- Department Name - Original Case -->
             <template #item.name="{ item }">
               <v-chip
                 :color="getDepartmentColor(item.name)"
@@ -84,14 +81,13 @@
           </v-data-table>
         </v-card>
 
-        <!-- Add/Edit Dialog -->
+        <!-- Dialogs & Snackbar (unchanged) -->
         <v-dialog v-model="dialog" max-width="600" persistent>
           <v-card class="pa-4">
             <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
               <BuildingIcon :size="28" />
               {{ form.id ? 'Edit Department' : 'Add New Department' }}
             </v-card-title>
-
             <v-card-text>
               <v-form @submit.prevent="saveDepartment">
                 <v-row>
@@ -118,7 +114,6 @@
                 </v-row>
               </v-form>
             </v-card-text>
-
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="confirmClose">Cancel</v-btn>
@@ -136,7 +131,6 @@
           </v-card>
         </v-dialog>
 
-        <!-- Unsaved Changes -->
         <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
           <v-card>
             <v-card-title class="text-h6 text-orange-darken-2">
@@ -154,7 +148,6 @@
           </v-card>
         </v-dialog>
 
-        <!-- Delete Confirmation -->
         <v-dialog v-model="deleteDialog" max-width="420">
           <v-card>
             <v-card-title class="text-h6 text-error">
@@ -175,7 +168,6 @@
           </v-card>
         </v-dialog>
 
-        <!-- Snackbar -->
         <v-snackbar
           v-model="snackbar.show"
           :color="snackbar.color"
@@ -195,10 +187,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
+import { useDisplay } from "vuetify";
 import axiosClient from "@/plugins/axios";
 
-// All icons from vue-tabler-icons (same as RolesView & sidebar)
 import {
   BuildingIcon,
   PlusIcon,
@@ -253,12 +245,32 @@ const nameRules = [
   (v: string) => (v && v.length >= 2) || "Minimum 2 characters"
 ];
 
-const headers = [
+// Full headers
+const baseHeaders = [
   { title: "Department", key: "name", width: 220 },
   { title: "Description", key: "description" },
   { title: "Created", key: "created_at", width: 150 },
   { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 }
 ];
+
+// Responsive control using Vuetify breakpoints
+const { smAndDown, xs } = useDisplay();
+
+const visibleHeaders = computed(() => {
+  let headers = [...baseHeaders];
+
+  // Hide Description on tablet & mobile
+  if (smAndDown.value) {
+    headers = headers.filter(h => h.key !== "description");
+  }
+
+  // Hide Created on phone only (extra clean on very small screens)
+  if (xs.value) {
+    headers = headers.filter(h => h.key !== "created_at");
+  }
+
+  return headers;
+});
 
 onMounted(() => loadDepartments());
 
@@ -280,18 +292,8 @@ const loadDepartments = async () => {
 const getDepartmentColor = (name: string) => {
   const lower = name.toLowerCase();
   const map: Record<string, string> = {
-    hr: "pink",
-    finance: "cyan",
-    it: "indigo",
-    marketing: "purple",
-    sales: "orange",
-    support: "green",
-    admin: "deep-purple",
-    macor: "blue",
-    riti: "teal",
-    sachas: "amber",
-    pili: "lime",
-    pali: "brown"
+    hr: "pink", finance: "cyan", it: "indigo", marketing: "purple",
+    sales: "orange", support: "green", admin: "deep-purple"
   };
   for (const key in map) {
     if (lower.includes(key)) return map[key];
@@ -335,7 +337,7 @@ const saveDepartment = async () => {
 
   try {
     saving.value = true;
-    const payload = { name: form.value.name, description: form.value.description || null };
+    const payload = { name: form.value.name.trim(), description: form.value.description || null };
 
     if (form.value.id) {
       const res = await axiosClient.put(`/departments/${form.value.id}`, payload);
@@ -352,11 +354,8 @@ const saveDepartment = async () => {
     }
     closeDialog();
   } catch (err: any) {
-    const msg =
-      err.response?.data?.message ||
-      (err.response?.data?.errors
-        ? Object.values(err.response.data.errors).flat().join(", ")
-        : "Operation failed");
+    const msg = err.response?.data?.message ||
+      (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(", ") : "Operation failed");
     showMessage(msg, "error");
   } finally {
     saving.value = false;
