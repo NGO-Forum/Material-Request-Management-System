@@ -5,8 +5,9 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Users Management</h1>
-          <v-btn color="primary" @click="openDialog()">
-            <v-icon start>bx-plus</v-icon>
+
+          <!-- Clean button - same as Roles & Departments -->
+          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
             Add User
           </v-btn>
         </div>
@@ -15,7 +16,7 @@
           <v-card-title class="pa-4">
             <v-text-field
               v-model="search"
-              append-inner-icon="bx-search"
+              append-inner-icon="SearchIcon"
               label="Search users..."
               single-line
               hide-details
@@ -45,7 +46,7 @@
                 >
                   <template #placeholder>
                     <div class="d-flex align-center justify-center fill-height bg-grey-lighten-2">
-                      <v-icon size="28">bx-user-circle</v-icon>
+                      <UserCircleIcon :size="28" />
                     </div>
                   </template>
                 </v-img>
@@ -58,6 +59,7 @@
                 :color="getRoleColor(item.role?.name)"
                 size="small"
                 label
+                class="font-weight-medium"
               >
                 {{ item.role?.name || 'N/A' }}
               </v-chip>
@@ -80,29 +82,29 @@
               <v-menu location="bottom">
                 <template #activator="{ props }">
                   <v-btn icon size="small" v-bind="props">
-                    <v-icon>bx-dots-vertical-rounded</v-icon>
+                    <DotsVerticalIcon :size="20" />
                   </v-btn>
                 </template>
 
                 <v-list density="compact">
                   <v-list-item @click="viewUser(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="black">bx-show</v-icon>
-                      <span>View</span>
+                      <EyeIcon :size="18" />
+                      View
                     </v-list-item-title>
                   </v-list-item>
 
                   <v-list-item @click="openDialog(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="black">bx-edit-alt</v-icon>
-                      <span>Edit</span>
+                      <EditIcon :size="18" />
+                      Edit
                     </v-list-item-title>
                   </v-list-item>
 
                   <v-list-item @click="confirmDelete(item)" class="text-error">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="red">bx-trash</v-icon>
-                      <span>Delete</span>
+                      <TrashIcon :size="18" class="text-error" />
+                      Delete
                     </v-list-item-title>
                   </v-list-item>
                 </v-list>
@@ -112,10 +114,10 @@
         </v-card>
 
         <!-- Add/Edit User Dialog -->
-        <v-dialog v-model="dialog" max-width="700" persistent @click:outside="confirmClose">
+        <v-dialog v-model="dialog" max-width="700" persistent>
           <v-card class="pa-4">
-            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-2">
-              <v-icon>bx-user-plus</v-icon>
+            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
+              <UserPlusIcon :size="28" />
               {{ form.id ? 'Edit User' : 'Add New User' }}
             </v-card-title>
 
@@ -126,7 +128,7 @@
                     <v-text-field
                       v-model="form.name"
                       label="Full Name"
-                      prepend-inner-icon="bx-user"
+                      prepend-inner-icon="UserIcon"
                       :rules="[v => !!v || 'Name is required']"
                       required
                     />
@@ -136,7 +138,7 @@
                       v-model="form.email"
                       label="Email"
                       type="email"
-                      prepend-inner-icon="bx-envelope"
+                      prepend-inner-icon="MailIcon"
                       :disabled="!!form.id"
                       :rules="form.id ? [] : [v => !!v || 'Email required', v => /.+@.+\..+/.test(v) || 'Valid email required']"
                       :hint="form.id ? 'Email cannot be changed' : ''"
@@ -149,7 +151,7 @@
                       v-model="form.password"
                       label="Password"
                       type="password"
-                      prepend-inner-icon="bx-lock-alt"
+                      prepend-inner-icon="LockIcon"
                       :rules="form.id ? [] : [v => !!v || 'Password required', v => (v && v.length >= 6) || 'Min 6 characters']"
                       :hint="form.id ? 'Leave blank to keep current' : ''"
                       persistent-hint
@@ -159,7 +161,7 @@
                     <v-text-field
                       v-model="form.phone_number"
                       label="Phone Number"
-                      prepend-inner-icon="bx-phone"
+                      prepend-inner-icon="PhoneIcon"
                     />
                   </v-col>
 
@@ -170,7 +172,7 @@
                       item-title="name"
                       item-value="id"
                       label="Role"
-                      prepend-icon="bx-shield-alt"
+                      prepend-inner-icon="ShieldIcon"
                       clearable
                     />
                   </v-col>
@@ -181,7 +183,7 @@
                       item-title="name"
                       item-value="id"
                       label="Department"
-                      prepend-icon="bx-building"
+                      prepend-inner-icon="BuildingIcon"
                       clearable
                     />
                   </v-col>
@@ -191,7 +193,7 @@
                       v-model="form.image_profile"
                       label="Profile Image"
                       accept="image/*"
-                      prepend-icon="bx-camera"
+                      prepend-inner-icon="CameraIcon"
                       clearable
                       show-size
                     />
@@ -206,33 +208,35 @@
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="confirmClose">Cancel</v-btn>
-              <v-btn color="primary" :loading="saving" :disabled="saving" @click="saveUser">
-                <v-icon start>{{ form.id ? 'bx-check' : 'bx-plus' }}</v-icon>
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="saving"
+                @click="saveUser"
+              >
+                <CheckIcon class="mr-2" :size="20" v-if="form.id" />
+                <PlusIcon class="mr-2" :size="20" v-else />
                 {{ form.id ? 'Update' : 'Create' }}
               </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
 
-        <!-- Unsaved Changes Confirmation Dialog -->
+        <!-- Unsaved Changes -->
         <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
           <v-card>
             <v-card-title class="text-h6 text-orange-darken-2">
-              <v-icon color="orange-darken-2" start>bx-warning</v-icon>
+              <AlertTriangleIcon :size="24" class="mr-2" />
               Unsaved Changes
             </v-card-title>
-            <v-card-text class="pt-4 text-body-1">
+            <v-card-text class="pt-4">
               You have made changes that haven't been saved.<br>
               Do you really want to <strong>discard</strong> them?
             </v-card-text>
             <v-card-actions>
               <v-spacer />
-              <v-btn variant="text" @click="confirmDiscardDialog = false">
-                Stay & Continue Editing
-              </v-btn>
-              <v-btn color="error" @click="forceCloseDialog">
-                Discard Changes
-              </v-btn>
+              <v-btn variant="text" @click="confirmDiscardDialog = false">Stay & Continue Editing</v-btn>
+              <v-btn color="error" @click="forceCloseDialog">Discard Changes</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -240,18 +244,19 @@
         <!-- Delete Confirmation -->
         <v-dialog v-model="deleteDialog" max-width="420">
           <v-card>
-            <v-card-title class="text-h6 text-error d-flex align-center gap-2">
-              <v-icon>bx-trash</v-icon> Delete User?
+            <v-card-title class="text-h6 text-error">
+              <TrashIcon :size="24" class="mr-2" />
+              Delete User?
             </v-card-title>
             <v-card-text>
-              Are you sure you want to delete <strong>{{ userToDelete?.name }}</strong>?
+              Are you sure you want to delete <strong>{{ userToDelete?.name }}</strong>?<br>
               This action cannot be undone.
             </v-card-text>
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
               <v-btn color="error" :loading="deleting" @click="deleteUser">
-                <v-icon start>bx-check</v-icon> Delete
+                Delete
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -260,8 +265,9 @@
         <!-- View User Details -->
         <v-dialog v-model="viewDialog" max-width="600">
           <v-card v-if="selectedUser">
-            <v-card-title class="text-h5 d-flex align-center gap-2">
-              <v-icon>bx-user-circle</v-icon> User Details
+            <v-card-title class="text-h5 d-flex align-center gap-3">
+              <UserCircleIcon :size="28" />
+              User Details
             </v-card-title>
             <v-card-text>
               <div class="text-center mb-6">
@@ -308,10 +314,11 @@
         <v-snackbar
           v-model="snackbar.show"
           :color="snackbar.color"
-          :timeout="4000"
+          timeout="4000"
           location="top"
         >
-          <v-icon start>{{ snackbar.color === 'success' ? 'bx-check-circle' : 'bx-error' }}</v-icon>
+          <CircleCheckIcon class="mr-2" :size="22" v-if="snackbar.color === 'success'" />
+          <CircleXIcon class="mr-2" :size="22" v-else />
           {{ snackbar.message }}
           <template #actions>
             <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
@@ -325,6 +332,29 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
 import axiosClient from "@/plugins/axios";
+
+// All icons from vue-tabler-icons - 100% consistent
+import {
+  PlusIcon,
+  SearchIcon,
+  DotsVerticalIcon,
+  EyeIcon,
+  EditIcon,
+  TrashIcon,
+  UserPlusIcon,
+  UserIcon,
+  MailIcon,
+  LockIcon,
+  PhoneIcon,
+  ShieldIcon,
+  BuildingIcon,
+  CameraIcon,
+  CheckIcon,
+  AlertTriangleIcon,
+  CircleCheckIcon,
+  CircleXIcon,
+  UserCircleIcon
+} from "vue-tabler-icons";
 
 interface Role { id: number; name: string }
 interface Department { id: number; name: string }
@@ -397,9 +427,9 @@ onMounted(async () => {
       axiosClient.get("/roles"),
       axiosClient.get("/departments")
     ]);
-    users.value = u.data;
-    roles.value = r.data;
-    departments.value = d.data;
+    users.value = u.data.data || u.data;
+    roles.value = r.data.data || r.data;
+    departments.value = d.data.data || d.data;
   } catch {
     showMessage("Failed to load data", "error");
   } finally {
@@ -417,9 +447,12 @@ const getImageUrl = (url: string | null, name: string = "User") => {
 const getRoleColor = (role: string | undefined) => {
   const map: Record<string, string> = {
     admin: "red",
+    superadmin: "deep-purple",
     manager: "orange",
+    employee: "blue",
     editor: "purple",
     user: "green",
+    developer: "indigo"
   };
   return map[role?.toLowerCase() || ""] || "grey";
 };
@@ -461,11 +494,7 @@ const openDialog = (user?: User) => {
 };
 
 const confirmClose = () => {
-  if (!formDirty.value) {
-    closeDialog();
-    return;
-  }
-  confirmDiscardDialog.value = true;
+  formDirty.value ? (confirmDiscardDialog.value = true) : closeDialog();
 };
 
 const forceCloseDialog = () => {
@@ -484,48 +513,34 @@ const closeDialog = () => {
 
 const saveUser = async () => {
   const data = new FormData();
-
   data.append("name", form.value.name);
   data.append("email", form.value.email);
-
-  if (form.value.id) {
-    if (form.value.password) {
-      data.append("password", form.value.password);
-    }
-  } else {
-    data.append("password", form.value.password);
-  }
-
+  if (!form.value.id) data.append("password", form.value.password);
+  else if (form.value.password) data.append("password", form.value.password);
   if (form.value.phone_number) data.append("phone_number", form.value.phone_number);
   if (form.value.role_id !== null) data.append("role_id", form.value.role_id.toString());
   if (form.value.department_id !== null) data.append("department_id", form.value.department_id.toString());
-
-  if (form.value.image_profile instanceof File) {
-    data.append("image_profile", form.value.image_profile);
-  }
+  if (form.value.image_profile instanceof File) data.append("image_profile", form.value.image_profile);
 
   try {
     saving.value = true;
     let response;
-
     if (form.value.id) {
-      response = await axiosClient.post(`/users/${form.value.id}?_method=PUT`, data); // Use POST with _method=PUT for FormData
+      response = await axiosClient.post(`/users/${form.value.id}?_method=PUT`, data);
+      const updated = response.data.data || response.data;
+      const idx = users.value.findIndex(u => u.id === form.value.id);
+      if (idx !== -1) users.value[idx] = updated;
       showMessage("User updated successfully");
-      const index = users.value.findIndex(u => u.id === form.value.id);
-      if (index !== -1) users.value[index] = response.data.data;
     } else {
       response = await axiosClient.post("/users", data);
+      const newUser = response.data.data || response.data;
+      users.value.unshift(newUser);
       showMessage("User created successfully");
-      users.value.unshift(response.data.data);
     }
     closeDialog();
   } catch (err: any) {
-    let msg = "Operation failed";
-    if (err.response?.data?.errors) {
-      msg = Object.values(err.response.data.errors).flat().join(", ");
-    } else if (err.response?.data?.message) {
-      msg = err.response.data.message;
-    }
+    const msg = err.response?.data?.message ||
+                (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(", ") : "Operation failed");
     showMessage(msg, "error");
   } finally {
     saving.value = false;
@@ -547,8 +562,8 @@ const deleteUser = async () => {
   try {
     deleting.value = true;
     await axiosClient.delete(`/users/${userToDelete.value.id}`);
-    showMessage("User deleted successfully");
     users.value = users.value.filter(u => u.id !== userToDelete.value!.id);
+    showMessage("User deleted successfully");
   } catch {
     showMessage("Failed to delete user", "error");
   } finally {
@@ -559,25 +574,17 @@ const deleteUser = async () => {
 };
 
 watch(() => form.value.image_profile, (newFile) => {
-  if (imagePreview.value?.startsWith("blob:")) {
-    URL.revokeObjectURL(imagePreview.value);
-  }
+  if (imagePreview.value?.startsWith("blob:")) URL.revokeObjectURL(imagePreview.value);
   imagePreview.value = newFile instanceof File ? URL.createObjectURL(newFile) : currentImageUrl;
 });
 
 watch(form, () => { formDirty.value = true; }, { deep: true });
 
 onUnmounted(() => {
-  if (imagePreview.value?.startsWith("blob:")) {
-    URL.revokeObjectURL(imagePreview.value);
-  }
+  if (imagePreview.value?.startsWith("blob:")) URL.revokeObjectURL(imagePreview.value);
 });
 </script>
 
 <style scoped>
-@import 'https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css';
-
 .cursor-pointer { cursor: pointer; }
-.gap-3 { gap: 12px; }
-.bx { font-size: 20px !important; }
 </style>

@@ -5,8 +5,7 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Roles Management</h1>
-          <v-btn color="primary" @click="openDialog()">
-            <v-icon start>bx-plus</v-icon>
+          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
             Add Role
           </v-btn>
         </div>
@@ -15,7 +14,7 @@
           <v-card-title class="pa-4">
             <v-text-field
               v-model="search"
-              append-inner-icon="bx-search"
+              append-inner-icon="SearchIcon"
               label="Search roles..."
               single-line
               hide-details
@@ -34,8 +33,9 @@
             items-per-page="15"
             class="elevation-1"
             density="compact"
+            :sort-by="[{ key: 'created_at', order: 'desc' }]"
           >
-            <!-- Role Name with Color -->
+            <!-- Role Name - Original Case Preserved -->
             <template #item.name="{ item }">
               <v-chip
                 :color="getRoleColor(item.name)"
@@ -47,37 +47,32 @@
               </v-chip>
             </template>
 
-            <!-- Description -->
             <template #item.description="{ item }">
               <span class="text-caption">{{ item.description || '—' }}</span>
             </template>
 
-            <!-- Created At -->
             <template #item.created_at="{ item }">
-              {{ formatDate(item.created_at) }}
+              {{ safeDate(item.created_at) }}
             </template>
 
-            <!-- Actions -->
             <template #item.actions="{ item }">
               <v-menu location="bottom">
                 <template #activator="{ props }">
                   <v-btn icon size="small" v-bind="props">
-                    <v-icon>bx-dots-vertical-rounded</v-icon>
+                    <DotsVerticalIcon :size="20" />
                   </v-btn>
                 </template>
-
                 <v-list density="compact">
                   <v-list-item @click="openDialog(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="black">bx-edit-alt</v-icon>
-                      <span>Edit</span>
+                      <EditIcon :size="18" />
+                      Edit
                     </v-list-item-title>
                   </v-list-item>
-
                   <v-list-item @click="confirmDelete(item)" class="text-error">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="red">bx-trash</v-icon>
-                      <span>Delete</span>
+                      <TrashIcon :size="18" class="text-error" />
+                      Delete
                     </v-list-item-title>
                   </v-list-item>
                 </v-list>
@@ -87,10 +82,10 @@
         </v-card>
 
         <!-- Add/Edit Dialog -->
-        <v-dialog v-model="dialog" max-width="600" persistent @click:outside="confirmClose">
+        <v-dialog v-model="dialog" max-width="600" persistent>
           <v-card class="pa-4">
-            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-2">
-              <v-icon>bx-shield-alt</v-icon>
+            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
+              <ShieldIcon :size="28" />
               {{ form.id ? 'Edit Role' : 'Add New Role' }}
             </v-card-title>
 
@@ -101,19 +96,20 @@
                     <v-text-field
                       v-model="form.name"
                       label="Role Name"
-                      prepend-inner-icon="bx-tag"
-                      :rules="[v => !!v || 'Role name is required', v => (v && v.length >= 2) || 'Min 2 characters']"
+                      prepend-inner-icon="TagIcon"
+                      :rules="nameRules"
                       required
+                      autofocus
                     />
                   </v-col>
-
                   <v-col cols="12">
                     <v-textarea
                       v-model="form.description"
-                      label="Description"
-                      prepend-inner-icon="bx-detail"
+                      label="Description (Optional)"
+                      prepend-inner-icon="FileDescriptionIcon"
                       rows="3"
                       auto-grow
+                      clearable
                     />
                   </v-col>
                 </v-row>
@@ -123,10 +119,34 @@
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="confirmClose">Cancel</v-btn>
-              <v-btn color="primary" :loading="saving" :disabled="saving" @click="saveRole">
-                <v-icon start>{{ form.id ? 'bx-check' : 'bx-plus' }}</v-icon>
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="saving || !form.name.trim()"
+                @click="saveRole"
+              >
+                <CheckIcon class="mr-2" :size="20" v-if="form.id" />
+                <PlusIcon class="mr-2" :size="20" v-else />
                 {{ form.id ? 'Update' : 'Create' }}
               </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Unsaved Changes Dialog -->
+        <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
+          <v-card>
+            <v-card-title class="text-h6 text-orange-darken-2">
+              <AlertTriangleIcon :size="24" class="mr-2" />
+              Unsaved Changes
+            </v-card-title>
+            <v-card-text class="pt-4">
+              You have unsaved changes. Do you really want to <strong>discard</strong> them?
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="confirmDiscardDialog = false">Stay</v-btn>
+              <v-btn color="error" @click="forceCloseDialog">Discard</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -134,31 +154,33 @@
         <!-- Delete Confirmation -->
         <v-dialog v-model="deleteDialog" max-width="420">
           <v-card>
-            <v-card-title class="text-h6 text-error d-flex align-center gap-2">
-              <v-icon>bx-trash</v-icon> Delete Role?
+            <v-card-title class="text-h6 text-error">
+              <TrashIcon :size="24" class="mr-2" />
+              Delete Role?
             </v-card-title>
             <v-card-text>
-              Are you sure you want to delete <strong>{{ roleToDelete?.name }}</strong>?
-              <br /><small>This may affect users assigned to this role.</small>
+              Delete <strong>{{ roleToDelete?.name }}</strong>?<br>
+              <small class="text-medium-emphasis">This cannot be undone.</small>
             </v-card-text>
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
               <v-btn color="error" :loading="deleting" @click="deleteRole">
-                <v-icon start>bx-check</v-icon> Delete
+                Delete
               </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
 
-        <!-- Snackbar -->
+        <!-- Snackbar - Perfect Success/Error Icons -->
         <v-snackbar
           v-model="snackbar.show"
           :color="snackbar.color"
-          :timeout="4000"
+          timeout="4000"
           location="top"
         >
-          <v-icon start>{{ snackbar.color === 'success' ? 'bx-check-circle' : 'bx-error' }}</v-icon>
+          <CircleCheckIcon class="mr-2" :size="22" v-if="snackbar.color === 'success'" />
+          <CircleXIcon class="mr-2" :size="22" v-else />
           {{ snackbar.message }}
           <template #actions>
             <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
@@ -170,15 +192,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import axiosClient from "@/plugins/axios";
+
+// All icons exist in vue-tabler-icons (2025 version)
+import {
+  ShieldIcon,
+  PlusIcon,
+  SearchIcon,
+  DotsVerticalIcon,
+  EditIcon,
+  TrashIcon,
+  TagIcon,
+  FileDescriptionIcon,
+  CheckIcon,
+  AlertTriangleIcon,
+  CircleCheckIcon,
+  CircleXIcon
+} from "vue-tabler-icons";
 
 interface Role {
   id: number;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string | null;
+  created_at: string | null;
 }
 
 const roles = ref<Role[]>([]);
@@ -188,6 +225,7 @@ const deleting = ref(false);
 const search = ref("");
 const dialog = ref(false);
 const deleteDialog = ref(false);
+const confirmDiscardDialog = ref(false);
 const roleToDelete = ref<Role | null>(null);
 const formDirty = ref(false);
 
@@ -197,8 +235,8 @@ const snackbar = ref({
   color: "success" as "success" | "error"
 });
 
-const showMessage = (message: string, color: "success" | "error" = "success") => {
-  snackbar.value = { show: true, message, color };
+const showMessage = (msg: string, color: "success" | "error" = "success") => {
+  snackbar.value = { show: true, message: msg, color };
 };
 
 const form = ref({
@@ -207,22 +245,28 @@ const form = ref({
   description: ""
 });
 
+const nameRules = [
+  (v: string) => !!v || "Role name is required",
+  (v: string) => (v && v.length >= 2) || "Minimum 2 characters"
+];
+
 const headers = [
   { title: "Role", key: "name", width: 180 },
   { title: "Description", key: "description" },
   { title: "Created", key: "created_at", width: 150 },
-  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 },
+  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 }
 ];
 
-onMounted(async () => {
-  await loadRoles();
-});
+onMounted(() => loadRoles());
 
 const loadRoles = async () => {
   try {
     loading.value = true;
     const res = await axiosClient.get("/roles");
-    roles.value = res.data;
+    roles.value = (res.data.data || res.data || []).map((r: any) => ({
+      ...r,
+      created_at: r.created_at || new Date().toISOString()
+    }));
   } catch {
     showMessage("Failed to load roles", "error");
   } finally {
@@ -230,65 +274,82 @@ const loadRoles = async () => {
   }
 };
 
-const getRoleColor = (roleName: string) => {
+const getRoleColor = (name: string) => {
+  const lower = name.toLowerCase();
   const map: Record<string, string> = {
     admin: "red",
+    superadmin: "deep-purple",
     manager: "orange",
     employee: "blue",
-    user: "green"
+    editor: "purple",
+    user: "green",
+    developer: "indigo",
+    moderator: "teal"
   };
-  return map[roleName?.toLowerCase()] || "grey";
+  for (const key in map) {
+    if (lower.includes(key)) return map[key];
+  }
+  return "grey";
 };
 
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
+const safeDate = (date: string | null) => {
+  if (!date) return "—";
+  const d = new Date(date);
+  return isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 };
 
 const openDialog = (role?: Role) => {
-  if (role) {
-    form.value = {
-      id: role.id,
-      name: role.name,
-      description: role.description || ""
-    };
-  } else {
-    form.value = { id: null, name: "", description: "" };
-  }
+  form.value = role
+    ? { id: role.id, name: role.name, description: role.description || "" }
+    : { id: null, name: "", description: "" };
   formDirty.value = false;
   dialog.value = true;
 };
 
 const confirmClose = () => {
-  if (formDirty.value && !confirm("You have unsaved changes. Close anyway?")) return;
+  formDirty.value ? (confirmDiscardDialog.value = true) : closeDialog();
+};
+
+const forceCloseDialog = () => {
+  confirmDiscardDialog.value = false;
   closeDialog();
 };
 
 const closeDialog = () => {
   dialog.value = false;
   formDirty.value = false;
+  form.value = { id: null, name: "", description: "" };
 };
 
 const saveRole = async () => {
+  if (!form.value.name.trim()) return;
+
   try {
     saving.value = true;
-    let response;
+    const payload = { name: form.value.name, description: form.value.description || null };
+
     if (form.value.id) {
-      response = await axiosClient.put(`/roles/${form.value.id}`, form.value);
+      const res = await axiosClient.put(`/roles/${form.value.id}`, payload);
+      const updated = res.data.data || res.data;
+      const idx = roles.value.findIndex(r => r.id === form.value.id);
+      if (idx !== -1) roles.value[idx] = updated;
       showMessage("Role updated successfully");
-      const index = roles.value.findIndex(r => r.id === form.value.id);
-      if (index !== -1) roles.value[index] = response.data;
     } else {
-      response = await axiosClient.post("/roles", form.value);
+      const res = await axiosClient.post("/roles", payload);
+      const newRole = res.data.data || res.data;
+      newRole.created_at = newRole.created_at || new Date().toISOString();
+      roles.value.unshift(newRole);
       showMessage("Role created successfully");
-      roles.value.unshift(response.data);
     }
     closeDialog();
   } catch (err: any) {
-    const msg = err.response?.data?.message || "Operation failed";
+    const msg =
+      err.response?.data?.message ||
+      (err.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join(", ")
+        : "Operation failed");
     showMessage(msg, "error");
   } finally {
     saving.value = false;
@@ -305,10 +366,10 @@ const deleteRole = async () => {
   try {
     deleting.value = true;
     await axiosClient.delete(`/roles/${roleToDelete.value.id}`);
-    showMessage("Role deleted successfully");
     roles.value = roles.value.filter(r => r.id !== roleToDelete.value!.id);
+    showMessage("Role deleted successfully");
   } catch (err: any) {
-    showMessage(err.response?.data?.message || "Cannot delete role (in use?)", "error");
+    showMessage(err.response?.data?.message || "Cannot delete role (in use)", "error");
   } finally {
     deleting.value = false;
     deleteDialog.value = false;
@@ -316,14 +377,9 @@ const deleteRole = async () => {
   }
 };
 
-// Track form changes
-watch(() => form.value, () => { formDirty.value = true; }, { deep: true });
+watch(form, () => { formDirty.value = true; }, { deep: true });
 </script>
 
 <style scoped>
-@import 'https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css';
-
-.cursor-pointer { cursor: pointer; }
-.gap-3 { gap: 12px; }
-.bx { font-size: 20px !important; }
+.v-icon { font-size: 20px !important; }
 </style>

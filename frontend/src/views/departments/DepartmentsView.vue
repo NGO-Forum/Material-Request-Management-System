@@ -5,8 +5,9 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Departments Management</h1>
-          <v-btn color="primary" @click="openDialog()">
-            <v-icon start>bx-plus</v-icon>
+
+          <!-- Clean, beautiful button — same as RolesView -->
+          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
             Add Department
           </v-btn>
         </div>
@@ -15,7 +16,7 @@
           <v-card-title class="pa-4">
             <v-text-field
               v-model="search"
-              append-inner-icon="bx-search"
+              append-inner-icon="SearchIcon"
               label="Search departments..."
               single-line
               hide-details
@@ -34,8 +35,9 @@
             items-per-page="15"
             class="elevation-1"
             density="compact"
+            :sort-by="[{ key: 'created_at', order: 'desc' }]"
           >
-            <!-- Department Name with Color -->
+            <!-- Department Name - Original Case -->
             <template #item.name="{ item }">
               <v-chip
                 :color="getDepartmentColor(item.name)"
@@ -47,37 +49,32 @@
               </v-chip>
             </template>
 
-            <!-- Description -->
             <template #item.description="{ item }">
               <span class="text-caption">{{ item.description || '—' }}</span>
             </template>
 
-            <!-- Created At -->
             <template #item.created_at="{ item }">
-              {{ formatDate(item.created_at) }}
+              {{ safeDate(item.created_at) }}
             </template>
 
-            <!-- Actions -->
             <template #item.actions="{ item }">
               <v-menu location="bottom">
                 <template #activator="{ props }">
                   <v-btn icon size="small" v-bind="props">
-                    <v-icon>bx-dots-vertical-rounded</v-icon>
+                    <DotsVerticalIcon :size="20" />
                   </v-btn>
                 </template>
-
                 <v-list density="compact">
                   <v-list-item @click="openDialog(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="black">bx-edit-alt</v-icon>
-                      <span>Edit</span>
+                      <EditIcon :size="18" />
+                      Edit
                     </v-list-item-title>
                   </v-list-item>
-
                   <v-list-item @click="confirmDelete(item)" class="text-error">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <v-icon color="red">bx-trash</v-icon>
-                      <span>Delete</span>
+                      <TrashIcon :size="18" class="text-error" />
+                      Delete
                     </v-list-item-title>
                   </v-list-item>
                 </v-list>
@@ -87,10 +84,10 @@
         </v-card>
 
         <!-- Add/Edit Dialog -->
-        <v-dialog v-model="dialog" max-width="600" persistent @click:outside="confirmClose">
+        <v-dialog v-model="dialog" max-width="600" persistent>
           <v-card class="pa-4">
-            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-2">
-              <v-icon>bx-building</v-icon>
+            <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
+              <BuildingIcon :size="28" />
               {{ form.id ? 'Edit Department' : 'Add New Department' }}
             </v-card-title>
 
@@ -101,19 +98,20 @@
                     <v-text-field
                       v-model="form.name"
                       label="Department Name"
-                      prepend-inner-icon="bx-tag"
-                      :rules="[v => !!v || 'Department name is required', v => (v && v.length >= 2) || 'Min 2 characters']"
+                      prepend-inner-icon="TagIcon"
+                      :rules="nameRules"
                       required
+                      autofocus
                     />
                   </v-col>
-
                   <v-col cols="12">
                     <v-textarea
                       v-model="form.description"
-                      label="Description"
-                      prepend-inner-icon="bx-detail"
+                      label="Description (Optional)"
+                      prepend-inner-icon="FileDescriptionIcon"
                       rows="3"
                       auto-grow
+                      clearable
                     />
                   </v-col>
                 </v-row>
@@ -123,10 +121,34 @@
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="confirmClose">Cancel</v-btn>
-              <v-btn color="primary" :loading="saving" :disabled="saving" @click="saveDepartment">
-                <v-icon start>{{ form.id ? 'bx-check' : 'bx-plus' }}</v-icon>
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="saving || !form.name.trim()"
+                @click="saveDepartment"
+              >
+                <CheckIcon class="mr-2" :size="20" v-if="form.id" />
+                <PlusIcon class="mr-2" :size="20" v-else />
                 {{ form.id ? 'Update' : 'Create' }}
               </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Unsaved Changes -->
+        <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
+          <v-card>
+            <v-card-title class="text-h6 text-orange-darken-2">
+              <AlertTriangleIcon :size="24" class="mr-2" />
+              Unsaved Changes
+            </v-card-title>
+            <v-card-text class="pt-4">
+              You have unsaved changes. Do you really want to <strong>discard</strong> them?
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="confirmDiscardDialog = false">Stay</v-btn>
+              <v-btn color="error" @click="forceCloseDialog">Discard</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -134,18 +156,19 @@
         <!-- Delete Confirmation -->
         <v-dialog v-model="deleteDialog" max-width="420">
           <v-card>
-            <v-card-title class="text-h6 text-error d-flex align-center gap-2">
-              <v-icon>bx-trash</v-icon> Delete Department?
+            <v-card-title class="text-h6 text-error">
+              <TrashIcon :size="24" class="mr-2" />
+              Delete Department?
             </v-card-title>
             <v-card-text>
-              Are you sure you want to delete <strong>{{ departmentToDelete?.name }}</strong>?
-              <br /><small>This may affect users assigned to this department.</small>
+              Delete <strong>{{ departmentToDelete?.name }}</strong>?<br>
+              <small class="text-medium-emphasis">This may affect assigned users.</small>
             </v-card-text>
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
               <v-btn color="error" :loading="deleting" @click="deleteDepartment">
-                <v-icon start>bx-check</v-icon> Delete
+                Delete
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -155,10 +178,11 @@
         <v-snackbar
           v-model="snackbar.show"
           :color="snackbar.color"
-          :timeout="4000"
+          timeout="4000"
           location="top"
         >
-          <v-icon start>{{ snackbar.color === 'success' ? 'bx-check-circle' : 'bx-error' }}</v-icon>
+          <CircleCheckIcon class="mr-2" :size="22" v-if="snackbar.color === 'success'" />
+          <CircleXIcon class="mr-2" :size="22" v-else />
           {{ snackbar.message }}
           <template #actions>
             <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
@@ -170,15 +194,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import axiosClient from "@/plugins/axios";
+
+// All icons from vue-tabler-icons (same as RolesView & sidebar)
+import {
+  BuildingIcon,
+  PlusIcon,
+  SearchIcon,
+  DotsVerticalIcon,
+  EditIcon,
+  TrashIcon,
+  TagIcon,
+  FileDescriptionIcon,
+  CheckIcon,
+  AlertTriangleIcon,
+  CircleCheckIcon,
+  CircleXIcon
+} from "vue-tabler-icons";
 
 interface Department {
   id: number;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string | null;
+  created_at: string | null;
 }
 
 const departments = ref<Department[]>([]);
@@ -188,6 +227,7 @@ const deleting = ref(false);
 const search = ref("");
 const dialog = ref(false);
 const deleteDialog = ref(false);
+const confirmDiscardDialog = ref(false);
 const departmentToDelete = ref<Department | null>(null);
 const formDirty = ref(false);
 
@@ -197,8 +237,8 @@ const snackbar = ref({
   color: "success" as "success" | "error"
 });
 
-const showMessage = (message: string, color: "success" | "error" = "success") => {
-  snackbar.value = { show: true, message, color };
+const showMessage = (msg: string, color: "success" | "error" = "success") => {
+  snackbar.value = { show: true, message: msg, color };
 };
 
 const form = ref({
@@ -207,22 +247,28 @@ const form = ref({
   description: ""
 });
 
-const headers = [
-  { title: "Department", key: "name", width: 180 },
-  { title: "Description", key: "description" },
-  { title: "Created", key: "created_at", width: 150 },
-  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 },
+const nameRules = [
+  (v: string) => !!v || "Department name is required",
+  (v: string) => (v && v.length >= 2) || "Minimum 2 characters"
 ];
 
-onMounted(async () => {
-  await loadDepartments();
-});
+const headers = [
+  { title: "Department", key: "name", width: 220 },
+  { title: "Description", key: "description" },
+  { title: "Created", key: "created_at", width: 150 },
+  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 }
+];
+
+onMounted(() => loadDepartments());
 
 const loadDepartments = async () => {
   try {
     loading.value = true;
     const res = await axiosClient.get("/departments");
-    departments.value = res.data;
+    departments.value = (res.data.data || res.data || []).map((d: any) => ({
+      ...d,
+      created_at: d.created_at || new Date().toISOString()
+    }));
   } catch {
     showMessage("Failed to load departments", "error");
   } finally {
@@ -230,74 +276,94 @@ const loadDepartments = async () => {
   }
 };
 
-const getDepartmentColor = (deptName: string) => {
+const getDepartmentColor = (name: string) => {
+  const lower = name.toLowerCase();
   const map: Record<string, string> = {
+    hr: "pink",
+    finance: "cyan",
+    it: "indigo",
+    marketing: "purple",
+    sales: "orange",
+    support: "green",
+    admin: "deep-purple",
     macor: "blue",
-    riti: "green",
-    sachas: "purple",
-    pali: "orange"
+    riti: "teal",
+    sachas: "amber",
+    pili: "lime",
+    pali: "brown"
   };
-  const key = deptName?.toLowerCase().split(' ')[0];
-  return map[key] || "grey";
-};
-
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
-};
-
-const openDialog = (department?: Department) => {
-  if (department) {
-    form.value = {
-      id: department.id,
-      name: department.name,
-      description: department.description || ""
-    };
-  } else {
-    form.value = { id: null, name: "", description: "" };
+  for (const key in map) {
+    if (lower.includes(key)) return map[key];
   }
+  return "grey";
+};
+
+const safeDate = (date: string | null) => {
+  if (!date) return "—";
+  const d = new Date(date);
+  return isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
+
+const openDialog = (dept?: Department) => {
+  form.value = dept
+    ? { id: dept.id, name: dept.name, description: dept.description || "" }
+    : { id: null, name: "", description: "" };
   formDirty.value = false;
   dialog.value = true;
 };
 
 const confirmClose = () => {
-  if (formDirty.value && !confirm("You have unsaved changes. Close anyway?")) return;
+  formDirty.value ? (confirmDiscardDialog.value = true) : closeDialog();
+};
+
+const forceCloseDialog = () => {
+  confirmDiscardDialog.value = false;
   closeDialog();
 };
 
 const closeDialog = () => {
   dialog.value = false;
   formDirty.value = false;
+  form.value = { id: null, name: "", description: "" };
 };
 
 const saveDepartment = async () => {
+  if (!form.value.name.trim()) return;
+
   try {
     saving.value = true;
-    let response;
+    const payload = { name: form.value.name, description: form.value.description || null };
+
     if (form.value.id) {
-      response = await axiosClient.put(`/departments/${form.value.id}`, form.value);
+      const res = await axiosClient.put(`/departments/${form.value.id}`, payload);
+      const updated = res.data.data || res.data;
+      const idx = departments.value.findIndex(d => d.id === form.value.id);
+      if (idx !== -1) departments.value[idx] = updated;
       showMessage("Department updated successfully");
-      const index = departments.value.findIndex(d => d.id === form.value.id);
-      if (index !== -1) departments.value[index] = response.data;
     } else {
-      response = await axiosClient.post("/departments", form.value);
+      const res = await axiosClient.post("/departments", payload);
+      const newDept = res.data.data || res.data;
+      newDept.created_at = newDept.created_at || new Date().toISOString();
+      departments.value.unshift(newDept);
       showMessage("Department created successfully");
-      departments.value.unshift(response.data);
     }
     closeDialog();
   } catch (err: any) {
-    const msg = err.response?.data?.message || "Operation failed";
+    const msg =
+      err.response?.data?.message ||
+      (err.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join(", ")
+        : "Operation failed");
     showMessage(msg, "error");
   } finally {
     saving.value = false;
   }
 };
 
-const confirmDelete = (department: Department) => {
-  departmentToDelete.value = department;
+const confirmDelete = (dept: Department) => {
+  departmentToDelete.value = dept;
   deleteDialog.value = true;
 };
 
@@ -306,10 +372,10 @@ const deleteDepartment = async () => {
   try {
     deleting.value = true;
     await axiosClient.delete(`/departments/${departmentToDelete.value.id}`);
-    showMessage("Department deleted successfully");
     departments.value = departments.value.filter(d => d.id !== departmentToDelete.value!.id);
+    showMessage("Department deleted successfully");
   } catch (err: any) {
-    showMessage(err.response?.data?.message || "Cannot delete department (in use?)", "error");
+    showMessage(err.response?.data?.message || "Cannot delete department (in use)", "error");
   } finally {
     deleting.value = false;
     deleteDialog.value = false;
@@ -317,14 +383,9 @@ const deleteDepartment = async () => {
   }
 };
 
-// Track form changes
-watch(() => form.value, () => { formDirty.value = true; }, { deep: true });
+watch(form, () => { formDirty.value = true; }, { deep: true });
 </script>
 
 <style scoped>
-@import 'https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css';
-
-.cursor-pointer { cursor: pointer; }
-.gap-3 { gap: 12px; }
-.bx { font-size: 20px !important; }
+.v-icon { font-size: 20px !important; }
 </style>

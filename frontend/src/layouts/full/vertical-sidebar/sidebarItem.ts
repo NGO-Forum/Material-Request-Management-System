@@ -1,17 +1,15 @@
 // src/layouts/vertical-sidebar/sidebarItem.ts
 import {
   DashboardIcon,
-  KeyIcon,
-  LoginIcon,
-  UserPlusIcon,
-  UserIcon,
-  ShieldIcon,
-  BuildingIcon,
-  ListCheckIcon,
   ClipboardTextIcon,
+  ListCheckIcon,
+  UserPlusIcon,
   ReportIcon,
-  AlertTriangleIcon,
   FileTextIcon,
+  ShieldIcon,
+  UserIcon,
+  BuildingIcon,
+  AlertTriangleIcon,
   HelpIcon
 } from 'vue-tabler-icons';
 
@@ -36,7 +34,7 @@ const sidebarItem: Menu[] = [
   {
     title: 'Default',
     icon: DashboardIcon,
-    to: '/main/dashboard/default'  // Fixed: full path under /main
+    to: '/dashboard/default'
   },
 
   { divider: true },
@@ -93,15 +91,15 @@ const sidebarItem: Menu[] = [
     ]
   },
 
-  // Administration - FIXED PATH
+  // Administration
   {
     title: 'Administration',
     icon: HelpIcon,
     children: [
       {
-        title: 'Users',               
+        title: 'Users',
         icon: UserIcon,
-        to: '/main/users'               
+        to: '/main/users'
       },
       {
         title: 'Roles',
