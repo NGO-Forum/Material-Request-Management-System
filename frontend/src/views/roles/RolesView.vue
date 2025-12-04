@@ -5,7 +5,8 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Roles Management</h1>
-          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
+          <v-btn color="primary"  @click="openDialog()">
+            <PlusIcon class="mr-2" :size="20" />
             Add Role
           </v-btn>
         </div>

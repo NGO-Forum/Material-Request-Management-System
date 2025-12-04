@@ -7,7 +7,8 @@
           <h1 class="text-h4 font-weight-bold">Departments Management</h1>
 
           <!-- Clean, beautiful button — same as RolesView -->
-          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
+          <v-btn color="primary"  @click="openDialog()">
+            <PlusIcon class="mr-2" :size="20" />
             Add Department
           </v-btn>
         </div>

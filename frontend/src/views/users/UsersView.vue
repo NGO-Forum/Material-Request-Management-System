@@ -7,9 +7,11 @@
           <h1 class="text-h4 font-weight-bold">Users Management</h1>
 
           <!-- Clean button - same as Roles & Departments -->
-          <v-btn color="primary" prepend-icon="PlusIcon" @click="openDialog()">
-            Add User
-          </v-btn>
+          <v-btn color="primary" @click="openDialog">
+          <PlusIcon class="mr-2" :size="20" />
+          Add User
+        </v-btn>
+
         </div>
 
         <v-card elevation="4" class="rounded-lg">
