@@ -75,7 +75,7 @@
               {{ formatDate(item.created_at) }}
             </template>
 
-            <!-- Actions Menu - Beautiful & Always Visible -->
+            <!-- Actions -->
             <template #item.actions="{ item }">
               <v-menu location="bottom">
                 <template #activator="{ props }">
@@ -111,7 +111,7 @@
           </v-data-table>
         </v-card>
 
-        <!-- Add/Edit Dialog -->
+        <!-- Add/Edit User Dialog -->
         <v-dialog v-model="dialog" max-width="700" persistent @click:outside="confirmClose">
           <v-card class="pa-4">
             <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-2">
@@ -209,6 +209,29 @@
               <v-btn color="primary" :loading="saving" :disabled="saving" @click="saveUser">
                 <v-icon start>{{ form.id ? 'bx-check' : 'bx-plus' }}</v-icon>
                 {{ form.id ? 'Update' : 'Create' }}
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Unsaved Changes Confirmation Dialog -->
+        <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
+          <v-card>
+            <v-card-title class="text-h6 text-orange-darken-2">
+              <v-icon color="orange-darken-2" start>bx-warning</v-icon>
+              Unsaved Changes
+            </v-card-title>
+            <v-card-text class="pt-4 text-body-1">
+              You have made changes that haven't been saved.<br>
+              Do you really want to <strong>discard</strong> them?
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="confirmDiscardDialog = false">
+                Stay & Continue Editing
+              </v-btn>
+              <v-btn color="error" @click="forceCloseDialog">
+                Discard Changes
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -326,6 +349,7 @@ const search = ref("");
 const dialog = ref(false);
 const viewDialog = ref(false);
 const deleteDialog = ref(false);
+const confirmDiscardDialog = ref(false);
 const selectedUser = ref<User | null>(null);
 const userToDelete = ref<User | null>(null);
 const formDirty = ref(false);
@@ -387,7 +411,7 @@ const getImageUrl = (url: string | null, name: string = "User") => {
   if (!url) {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&bold=true&rounded=true`;
   }
-  return url.startsWith("http") ? url : `${import.meta.env.VITE_APP_URL || ""}/storage/${url}`;
+  return url.startsWith("http") ? url : `${import.meta.env.VITE_APP_URL || ""}${url}`;
 };
 
 const getRoleColor = (role: string | undefined) => {
@@ -437,7 +461,15 @@ const openDialog = (user?: User) => {
 };
 
 const confirmClose = () => {
-  if (formDirty.value && !confirm("You have unsaved changes. Close anyway?")) return;
+  if (!formDirty.value) {
+    closeDialog();
+    return;
+  }
+  confirmDiscardDialog.value = true;
+};
+
+const forceCloseDialog = () => {
+  confirmDiscardDialog.value = false;
   closeDialog();
 };
 
@@ -452,12 +484,22 @@ const closeDialog = () => {
 
 const saveUser = async () => {
   const data = new FormData();
+
   data.append("name", form.value.name);
   data.append("email", form.value.email);
-  if (form.value.password) data.append("password", form.value.password);
-  if (form.value.phone_number) data.append("phone_number", form.value.phone_number || "");
-  if (form.value.role_id) data.append("role_id", form.value.role_id.toString());
-  if (form.value.department_id) data.append("department_id", form.value.department_id.toString());
+
+  if (form.value.id) {
+    if (form.value.password) {
+      data.append("password", form.value.password);
+    }
+  } else {
+    data.append("password", form.value.password);
+  }
+
+  if (form.value.phone_number) data.append("phone_number", form.value.phone_number);
+  if (form.value.role_id !== null) data.append("role_id", form.value.role_id.toString());
+  if (form.value.department_id !== null) data.append("department_id", form.value.department_id.toString());
+
   if (form.value.image_profile instanceof File) {
     data.append("image_profile", form.value.image_profile);
   }
@@ -465,19 +507,25 @@ const saveUser = async () => {
   try {
     saving.value = true;
     let response;
+
     if (form.value.id) {
-      response = await axiosClient.put(`/users/${form.value.id}`, data);
+      response = await axiosClient.post(`/users/${form.value.id}?_method=PUT`, data); // Use POST with _method=PUT for FormData
       showMessage("User updated successfully");
       const index = users.value.findIndex(u => u.id === form.value.id);
-      if (index !== -1) users.value[index] = response.data;
+      if (index !== -1) users.value[index] = response.data.data;
     } else {
       response = await axiosClient.post("/users", data);
       showMessage("User created successfully");
-      users.value.unshift(response.data);
+      users.value.unshift(response.data.data);
     }
     closeDialog();
   } catch (err: any) {
-    const msg = err.response?.data?.message || err.response?.data?.errors?.image_profile?.[0] || "Operation failed";
+    let msg = "Operation failed";
+    if (err.response?.data?.errors) {
+      msg = Object.values(err.response.data.errors).flat().join(", ");
+    } else if (err.response?.data?.message) {
+      msg = err.response.data.message;
+    }
     showMessage(msg, "error");
   } finally {
     saving.value = false;
@@ -527,12 +575,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Boxicons CDN - Icons will now show 100% */
 @import 'https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css';
 
 .cursor-pointer { cursor: pointer; }
 .gap-3 { gap: 12px; }
-
-/* Make icons crisp and visible */
 .bx { font-size: 20px !important; }
 </style>
