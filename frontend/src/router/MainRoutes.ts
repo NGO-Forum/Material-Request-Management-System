@@ -16,6 +16,21 @@ const MainRoutes = {
       path: '/dashboard/default',
       component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
     },
+    {
+    name: 'Users',
+    path: '/main/users',  
+    component: () => import('@/views/users/UsersView.vue')
+  },
+  {
+    name: 'Roles',
+    path: '/main/roles',
+    component: () => import('@/views/roles/RolesView.vue')
+  },
+  {
+      name: 'Departments',
+      path: '/main/departments',
+      component: () => import('@/views/departments/DepartmentsView.vue')
+    },
   ]
 };
 

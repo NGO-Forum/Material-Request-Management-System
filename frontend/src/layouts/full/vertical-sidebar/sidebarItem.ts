@@ -1,3 +1,4 @@
+// src/layouts/vertical-sidebar/sidebarItem.ts
 import {
   DashboardIcon,
   KeyIcon,
@@ -14,28 +15,28 @@ import {
   HelpIcon
 } from 'vue-tabler-icons';
 
-export interface menu {
+export interface Menu {
   header?: string;
   title?: string;
-  icon?: object;
+  icon?: any;
   to?: string;
   divider?: boolean;
   chip?: string;
   chipColor?: string;
   chipVariant?: string;
   chipIcon?: string;
-  children?: menu[];
+  children?: Menu[];
   disabled?: boolean;
   type?: string;
   subCaption?: string;
 }
 
-const sidebarItem: menu[] = [
+const sidebarItem: Menu[] = [
   { header: 'Dashboard' },
   {
     title: 'Default',
     icon: DashboardIcon,
-    to: '/dashboard/default'
+    to: '/main/dashboard/default'  // Fixed: full path under /main
   },
 
   { divider: true },
@@ -45,22 +46,21 @@ const sidebarItem: menu[] = [
   {
     title: 'Inventory Management',
     icon: ClipboardTextIcon,
-    to: '/inventory',
     children: [
       {
         title: 'List Material',
         icon: ListCheckIcon,
-        to: '/inventory/list'
+        to: '/main/inventory/list'
       },
       {
         title: 'Add Material',
         icon: UserPlusIcon,
-        to: '/inventory/add'
+        to: '/main/inventory/add'
       },
       {
         title: 'Inventory Reports',
         icon: ReportIcon,
-        to: '/inventory/reports'
+        to: '/main/inventory/reports'
       }
     ]
   },
@@ -69,56 +69,53 @@ const sidebarItem: menu[] = [
   {
     title: 'Material Request Management',
     icon: FileTextIcon,
-    to: '/requests',
     children: [
       {
         title: 'Create Request',
         icon: ClipboardTextIcon,
-        to: '/requests/create'
+        to: '/main/requests/create'
       },
       {
         title: 'Request List',
         icon: ListCheckIcon,
-        to: '/requests/list'
+        to: '/main/requests/list'
       },
       {
         title: 'Request Approval',
         icon: ShieldIcon,
-        to: '/requests/approval'
+        to: '/main/requests/approval'
       },
       {
         title: 'Request Tracking',
         icon: ReportIcon,
-        to: '/requests/tracking'
+        to: '/main/requests/tracking'
       }
     ]
   },
 
-  // Administration
+  // Administration - FIXED PATH
   {
     title: 'Administration',
     icon: HelpIcon,
-    to: '/admin',
     children: [
       {
-        title: 'User',
+        title: 'Users',               
         icon: UserIcon,
-        to: '/admin/user'
+        to: '/main/users'               
       },
       {
-        title: 'Role',
+        title: 'Roles',
         icon: ShieldIcon,
-        to: '/admin/role'
+        to: '/main/roles'
       },
       {
-        title: 'Department',
+        title: 'Departments',
         icon: BuildingIcon,
-        to: '/admin/department'
+        to: '/main/departments'
       }
     ]
   },
 
-  // Error
   {
     title: 'Error 404',
     icon: AlertTriangleIcon,
