@@ -6,12 +6,10 @@
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Users Management</h1>
 
-          <!-- Clean button - same as Roles & Departments -->
           <v-btn color="primary" @click="openDialog">
-          <PlusIcon class="mr-2" :size="20" />
-          Add User
-        </v-btn>
-
+            <PlusIcon class="mr-2" :size="20" />
+            Add User
+          </v-btn>
         </div>
 
         <v-card elevation="4" class="rounded-lg">
@@ -74,6 +72,13 @@
               </span>
             </template>
 
+            <!-- Address (optional column) -->
+            <template #item.address="{ item }">
+              <span class="text-caption">
+                {{ item.address ? item.address.substring(0, 40) + (item.address.length > 40 ? '...' : '') : '—' }}
+              </span>
+            </template>
+
             <!-- Joined Date -->
             <template #item.created_at="{ item }">
               {{ formatDate(item.created_at) }}
@@ -116,7 +121,7 @@
         </v-card>
 
         <!-- Add/Edit User Dialog -->
-        <v-dialog v-model="dialog" max-width="700" persistent>
+        <v-dialog v-model="dialog" max-width="800" persistent>
           <v-card class="pa-4">
             <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
               <UserPlusIcon :size="28" />
@@ -164,6 +169,17 @@
                       v-model="form.phone_number"
                       label="Phone Number"
                       prepend-inner-icon="PhoneIcon"
+                    />
+                  </v-col>
+
+                  <!-- Address Field -->
+                  <v-col cols="12">
+                    <v-textarea
+                      v-model="form.address"
+                      label="Address"
+                      prepend-inner-icon="MapPinIcon"
+                      rows="2"
+                      auto-grow
                     />
                   </v-col>
 
@@ -224,7 +240,7 @@
           </v-card>
         </v-dialog>
 
-        <!-- Unsaved Changes -->
+        <!-- Unsaved Changes Dialog -->
         <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
           <v-card>
             <v-card-title class="text-h6 text-orange-darken-2">
@@ -288,6 +304,10 @@
                   <v-list-item-subtitle>{{ selectedUser.phone_number || '—' }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
+                  <v-list-item-title>Address</v-list-item-title>
+                  <v-list-item-subtitle>{{ selectedUser.address || '—' }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item>
                   <v-list-item-title>Role</v-list-item-title>
                   <v-list-item-subtitle>
                     <v-chip small :color="getRoleColor(selectedUser.role?.name)">
@@ -335,7 +355,7 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 import axiosClient from "@/plugins/axios";
 
-// All icons from vue-tabler-icons - 100% consistent
+// Icons
 import {
   PlusIcon,
   SearchIcon,
@@ -355,7 +375,8 @@ import {
   AlertTriangleIcon,
   CircleCheckIcon,
   CircleXIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  MapPinIcon
 } from "vue-tabler-icons";
 
 interface Role { id: number; name: string }
@@ -366,6 +387,7 @@ interface User {
   email: string;
   image_profile: string | null;
   phone_number: string | null;
+  address: string | null;           // <-- Added
   role: { id: number; name: string } | null;
   department: { id: number; name: string } | null;
   created_at: string;
@@ -404,6 +426,7 @@ const form = ref({
   email: "",
   password: "",
   phone_number: "",
+  address: "",                      // <-- Added
   image_profile: null as File | null,
   role_id: null as number | null,
   department_id: null as number | null,
@@ -416,6 +439,7 @@ const headers = [
   { title: "Name", key: "name" },
   { title: "Email", key: "email" },
   { title: "Phone", key: "phone_number" },
+  { title: "Address", key: "address", sortable: false },   // Optional column
   { title: "Role", key: "role", sortable: false },
   { title: "Department", key: "department", sortable: false },
   { title: "Joined", key: "created_at" },
@@ -471,6 +495,7 @@ const openDialog = (user?: User) => {
       email: user.email,
       password: "",
       phone_number: user.phone_number || "",
+      address: user.address || "",               // <-- Populate address
       image_profile: null,
       role_id: user.role?.id || null,
       department_id: user.department?.id || null,
@@ -484,6 +509,7 @@ const openDialog = (user?: User) => {
       email: "",
       password: "",
       phone_number: "",
+      address: "",
       image_profile: null,
       role_id: null,
       department_id: null,
@@ -520,6 +546,7 @@ const saveUser = async () => {
   if (!form.value.id) data.append("password", form.value.password);
   else if (form.value.password) data.append("password", form.value.password);
   if (form.value.phone_number) data.append("phone_number", form.value.phone_number);
+  if (form.value.address) data.append("address", form.value.address);         // <-- Send address
   if (form.value.role_id !== null) data.append("role_id", form.value.role_id.toString());
   if (form.value.department_id !== null) data.append("department_id", form.value.department_id.toString());
   if (form.value.image_profile instanceof File) data.append("image_profile", form.value.image_profile);
@@ -531,7 +558,7 @@ const saveUser = async () => {
       response = await axiosClient.post(`/users/${form.value.id}?_method=PUT`, data);
       const updated = response.data.data || response.data;
       const idx = users.value.findIndex(u => u.id === form.value.id);
-      if (idx !== -1) users.value[idx] = updated;
+      if (idx !== -1) users.value.splice(idx, 1, updated);
       showMessage("User updated successfully");
     } else {
       response = await axiosClient.post("/users", data);
