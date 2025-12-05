@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\Roles\RoleController;
 use App\Http\Controllers\V1\Departments\DepartmentController;
 use App\Http\Controllers\V1\Users\UserController;
+use App\Http\Controllers\V1\Auth\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,19 +18,25 @@ use App\Http\Controllers\V1\Users\UserController;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+
+
+// PUBLIC ROUTES
+Route::prefix('v1')->group(function () {
+
+    // Register & Login
+    Route::post('register', [AuthController::class, 'register']);
+    Route::post('login', [AuthController::class, 'login']);
+
+    // CRUD (requires token)
+    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('departments', DepartmentController::class);
+    Route::apiResource('users', UserController::class)->middleware('auth:sanctum');
 });
 
-
-// Group routes under /api/v1 prefix
-Route::prefix('v1')->group(function () {
-    // Roles CRUD
-    Route::apiResource('roles', RoleController::class);
-    // Departments CRUD
-    Route::apiResource('departments', DepartmentController::class);
-    // Users CRUD
-    Route::apiResource('users', UserController::class);
+// PROTECTED ROUTES
+Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
+    Route::post('logout', [AuthController::class, 'logout']);
+    Route::get('me', [AuthController::class, 'me']);
 });
 
 
