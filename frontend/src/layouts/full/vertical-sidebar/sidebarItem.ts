@@ -117,7 +117,7 @@ const sidebarItem: Menu[] = [
   {
     title: 'Error 404',
     icon: AlertTriangleIcon,
-    to: '/error'
+    to: '/main/error'
   }
 ];
 

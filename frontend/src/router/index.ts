@@ -38,4 +38,4 @@ router.beforeEach(async (to, from, next) => {
   next();
 });
 
-export default router; // ← Must be default export!
+export default router; 
