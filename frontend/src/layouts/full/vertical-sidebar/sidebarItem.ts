@@ -34,7 +34,7 @@ const sidebarItem: Menu[] = [
   {
     title: 'Default',
     icon: DashboardIcon,
-    to: '/dashboard/default'
+    to: '/main/dashboard/default'
   },
 
   { divider: true },

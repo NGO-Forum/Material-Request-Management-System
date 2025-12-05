@@ -1,23 +1,26 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth';
+import { useCustomizerStore } from '@/stores/customizer'; // ← Fixed import
 import { ref } from 'vue';
-import { useCustomizerStore } from '../../../stores/customizer';
-// Icon Imports
 import { BellIcon, SettingsIcon, SearchIcon, Menu2Icon } from 'vue-tabler-icons';
 
-// dropdown imports
+// Dropdown imports
 import NotificationDD from './NotificationDD.vue';
 import ProfileDD from './ProfileDD.vue';
 import Searchbar from './SearchBarPanel.vue';
 
-const customizer = useCustomizerStore();
+const authStore = useAuthStore();
+const customizer = useCustomizerStore(); // ← Now works!
 const showSearch = ref(false);
-function searchbox() {
+
+const searchbox = () => {
   showSearch.value = !showSearch.value;
-}
+};
 </script>
 
 <template>
   <v-app-bar elevation="0" height="80">
+    <!-- Sidebar Toggle (Desktop) -->
     <v-btn
       class="hidden-md-and-down text-secondary"
       color="lightsecondary"
@@ -29,6 +32,8 @@ function searchbox() {
     >
       <Menu2Icon size="20" stroke-width="1.5" />
     </v-btn>
+
+    <!-- Sidebar Toggle (Mobile) -->
     <v-btn
       class="hidden-lg-and-up text-secondary ms-3"
       color="lightsecondary"
@@ -41,7 +46,7 @@ function searchbox() {
       <Menu2Icon size="20" stroke-width="1.5" />
     </v-btn>
 
-    <!-- search mobile -->
+    <!-- Search Toggle (Mobile) -->
     <v-btn
       class="hidden-lg-and-up text-secondary ml-3"
       color="lightsecondary"
@@ -54,53 +59,74 @@ function searchbox() {
       <SearchIcon size="17" stroke-width="1.5" />
     </v-btn>
 
-    <v-sheet v-if="showSearch" class="search-sheet v-col-12">
+    <!-- Mobile Search Panel -->
+    <v-sheet v-if="showSearch" class="search-sheet v-col-12 pa-4 bg-surface">
       <Searchbar :closesearch="searchbox" />
     </v-sheet>
 
-    <!-- ---------------------------------------------- -->
-    <!-- Search part -->
-    <!-- ---------------------------------------------- -->
+    <!-- Desktop Search -->
     <v-sheet class="mx-3 v-col-3 v-col-xl-2 v-col-lg-4 d-none d-lg-block">
       <Searchbar />
     </v-sheet>
 
-    <!---/Search part -->
-
     <v-spacer />
-    <!-- ---------------------------------------------- -->
-    <!---right part -->
-    <!-- ---------------------------------------------- -->
 
-    <!-- ---------------------------------------------- -->
-    <!-- Notification -->
-    <!-- ---------------------------------------------- -->
+    <!-- Notification Dropdown -->
     <v-menu :close-on-content-click="false">
       <template v-slot:activator="{ props }">
-        <v-btn icon class="text-secondary mx-3" color="lightsecondary" rounded="sm" size="small" variant="flat" v-bind="props">
+        <v-btn
+          icon
+          class="text-secondary mx-3"
+          color="lightsecondary"
+          rounded="sm"
+          size="small"
+          variant="flat"
+          v-bind="props"
+        >
           <BellIcon stroke-width="1.5" size="22" />
+          <v-badge v-if="false" color="error" dot offset-x="8" offset-y="8" />
         </v-btn>
       </template>
-      <v-sheet rounded="md" width="330" elevation="12">
+      <v-sheet rounded="md" width="360" elevation="12">
         <NotificationDD />
       </v-sheet>
     </v-menu>
 
-    <!-- ---------------------------------------------- -->
-    <!-- User Profile -->
-    <!-- ---------------------------------------------- -->
+    <!-- User Profile Dropdown -->
     <v-menu :close-on-content-click="false">
       <template v-slot:activator="{ props }">
-        <v-btn class="profileBtn text-primary" color="lightprimary" variant="flat" rounded="pill" v-bind="props">
-          <v-avatar size="30" class="mr-2 py-2">
-            <img src="@/assets/images/profile/chhea.jpg" alt="Julia" />
+        <v-btn
+          class="profileBtn text-primary"
+          color="lightprimary"
+          variant="flat"
+          rounded="pill"
+          v-bind="props"
+        >
+          <v-avatar size="36" class="mr-3">
+            <img
+              :src="authStore.user?.image_profile || `https://ui-avatars.com/api/?name=${encodeURIComponent(authStore.user?.name || 'User')}&background=6366f1&color=fff&bold=true`"
+              :alt="authStore.user?.name || 'User'"
+              class="object-cover"
+            />
           </v-avatar>
           <SettingsIcon stroke-width="1.5" />
         </v-btn>
       </template>
-      <v-sheet rounded="md" width="330" elevation="12">
+      <v-sheet rounded="md" width="340" elevation="12">
         <ProfileDD />
       </v-sheet>
     </v-menu>
   </v-app-bar>
 </template>
+
+<style scoped>
+.search-sheet {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+</style>

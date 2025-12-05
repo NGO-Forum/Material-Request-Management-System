@@ -13,7 +13,7 @@ const MainRoutes = {
     },
     {
       name: 'Default',
-      path: '/dashboard/default',
+      path: '/main/dashboard/default',
       component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
     },
     {

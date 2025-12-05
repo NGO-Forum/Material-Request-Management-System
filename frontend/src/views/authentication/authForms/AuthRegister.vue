@@ -1,205 +1,269 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import axiosClient from '@/plugins/axios';
 
-const Regform = ref();
-const username = ref('');
+// Fix: Properly type the file input ref
+const fileInput = ref<HTMLInputElement | null>(null);
+
+const authStore = useAuthStore();
+
+const form = ref<any>(null);
+const name = ref('');
 const email = ref('');
+const password = ref('');
 const phoneNumber = ref('');
 const address = ref('');
-const role = ref('');
-const department = ref('');
-const password = ref('');
+const role_id = ref<number | null>(null);
+const department_id = ref<number | null>(null);
 const imageProfile = ref<File | null>(null);
 const imagePreview = ref<string | null>(null);
-const agree = ref(false);
 const showPassword = ref(false);
+const agree = ref(false);
+const loading = ref(false);
+const errorMessage = ref<string | null>(null);
 
-// Validation rules
-const requiredRule = [(v: any) => !!v || 'This field is required'];
-const emailRules = [
-  (v: string) => !!v || 'E-mail is required',
-  (v: string) => /.+@.+\..+/.test(v) || 'E-mail must be valid'
-];
-const passwordRules = [
-  (v: string) => !!v || 'Password is required',
-  (v: string) => (v && v.length >= 6) || 'Password must be at least 6 characters'
-];
-const imageRules = [(v: File) => !!v || 'Profile image is required'];
+const roles = ref<Array<{ id: number; name: string }>>([]);
+const departments = ref<Array<{ id: number; name: string }>>([]);
 
-// Select options
-const roles = ['Admin', 'Manager', 'Employee'];
-const departments = [
-  'MACOR Program Manager',
-  'SACHAS Program Manager',
-  'PILI Program Manager',
-  'RITI Program Manager'
-];
-
-// File upload handler
-function handleFileChange(event: Event) {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    imageProfile.value = target.files[0];
-    const reader = new FileReader();
-    reader.onload = e => {
-      imagePreview.value = e.target?.result as string;
-    };
-    reader.readAsDataURL(target.files[0]);
+// Fetch Roles & Departments
+const fetchRolesAndDepartments = async () => {
+  try {
+    const [rolesRes, deptsRes] = await Promise.all([
+      axiosClient.get('/roles'),
+      axiosClient.get('/departments')
+    ]);
+    roles.value = rolesRes.data.data || rolesRes.data;
+    departments.value = deptsRes.data.data || deptsRes.data;
+  } catch (err) {
+    console.error('Failed to load roles/departments:', err);
+    errorMessage.value = 'Failed to load roles or departments.';
   }
-}
+};
 
-// Drag & Drop support
-function handleDrop(event: DragEvent) {
-  event.preventDefault();
-  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
-    imageProfile.value = event.dataTransfer.files[0];
-    const reader = new FileReader();
-    reader.onload = e => {
-      imagePreview.value = e.target?.result as string;
-    };
-    reader.readAsDataURL(event.dataTransfer.files[0]);
+onMounted(() => {
+  fetchRolesAndDepartments();
+});
+
+// Image Upload Handlers
+const handleFileChange = (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  if (input.files?.[0]) {
+    const file = input.files[0];
+    imageProfile.value = file;
+    previewImage(file);
   }
-}
+};
 
-// Form submit
-function validate() {
-  if (Regform.value.validate()) {
-    const formData = new FormData();
-    formData.append('username', username.value);
-    formData.append('email', email.value);
-    formData.append('phone_number', phoneNumber.value);
-    formData.append('address', address.value);
-    formData.append('role', role.value);
-    formData.append('department', department.value);
-    formData.append('password', password.value);
-    if (imageProfile.value) {
-      formData.append('image_profile', imageProfile.value);
-    }
-
-    console.log('Form data ready to submit:', formData);
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault();
+  const file = e.dataTransfer?.files[0];
+  if (file && file.type.startsWith('image/')) {
+    imageProfile.value = file;
+    previewImage(file);
   }
-}
+};
+
+const previewImage = (file: File) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagePreview.value = reader.result as string;
+  };
+  reader.readAsDataURL(file);
+};
+
+// Open file picker when upload box is clicked
+const openFilePicker = () => {
+  fileInput.value?.click();
+};
+
+// Submit Registration
+const submitRegister = async () => {
+  if (!form.value?.validate()) {
+    errorMessage.value = 'Please fill in all required fields correctly.';
+    return;
+  }
+
+  if (!agree.value) {
+    errorMessage.value = 'You must agree to the terms and conditions.';
+    return;
+  }
+
+  if (!role_id.value || !department_id.value) {
+    errorMessage.value = 'Please select a role and department.';
+    return;
+  }
+
+  loading.value = true;
+  errorMessage.value = null;
+
+  const formData = new FormData();
+  formData.append('name', name.value);
+  formData.append('email', email.value);
+  formData.append('password', password.value);
+  if (phoneNumber.value) formData.append('phone_number', phoneNumber.value);
+  if (address.value) formData.append('address', address.value);
+  formData.append('role_id', role_id.value.toString());
+  formData.append('department_id', department_id.value.toString());
+  if (imageProfile.value) formData.append('image_profile', imageProfile.value);
+
+  try {
+    await authStore.register(formData);
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Registration failed. Please try again.';
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
-  <v-form ref="Regform" lazy-validation class="mt-7 registerForm">
-    <!-- Username -->
+  <v-form ref="form" @submit.prevent="submitRegister" class="mt-7 registerForm">
+    <!-- Full Name -->
     <v-text-field
-      v-model="username"
-      :rules="requiredRule"
-      label="Username"
+      v-model="name"
+      label="Full Name"
       variant="outlined"
       density="comfortable"
+      :rules="[(v) => !!v || 'Name is required']"
       required
       class="mb-4"
-    ></v-text-field>
+    />
 
     <!-- Email -->
     <v-text-field
       v-model="email"
-      :rules="emailRules"
       label="Email Address"
+      type="email"
       variant="outlined"
       density="comfortable"
+      :rules="[
+        (v) => !!v || 'Email is required',
+        (v) => /.+@.+\..+/.test(v) || 'Please enter a valid email'
+      ]"
       required
       class="mb-4"
-    ></v-text-field>
+    />
 
-    <!-- Phone Number -->
+    <!-- Phone & Address -->
     <v-text-field
       v-model="phoneNumber"
-      :rules="requiredRule"
       label="Phone Number"
       variant="outlined"
       density="comfortable"
-      required
       class="mb-4"
-    ></v-text-field>
+    />
 
-    <!-- Address -->
     <v-textarea
       v-model="address"
-      :rules="requiredRule"
       label="Address"
       variant="outlined"
       density="comfortable"
-      rows="4"
-      required
+      rows="3"
       class="mb-4"
-    ></v-textarea>
+    />
 
     <!-- Role -->
     <v-select
-      v-model="role"
+      v-model="role_id"
       :items="roles"
-      :rules="requiredRule"
+      item-title="name"
+      item-value="id"
       label="Select Role"
+      variant="outlined"
+      :rules="[(v) => !!v || 'Please select a role']"
       required
       class="mb-4"
-    ></v-select>
+      :loading="roles.length === 0"
+      :disabled="roles.length === 0"
+    />
 
     <!-- Department -->
     <v-select
-      v-model="department"
+      v-model="department_id"
       :items="departments"
-      :rules="requiredRule"
+      item-title="name"
+      item-value="id"
       label="Select Department"
+      variant="outlined"
+      :rules="[(v) => !!v || 'Please select a department']"
       required
       class="mb-4"
-    ></v-select>
+      :loading="departments.length === 0"
+      :disabled="departments.length === 0"
+    />
 
     <!-- Password -->
     <v-text-field
       v-model="password"
-      :rules="passwordRules"
       :type="showPassword ? 'text' : 'password'"
-      :append-icon="showPassword ? '$eye' : '$eyeOff'"
-      @click:append="showPassword = !showPassword"
       label="Password"
       variant="outlined"
       density="comfortable"
+      :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+      @click:append-inner="showPassword = !showPassword"
+      :rules="[
+        (v) => !!v || 'Password is required',
+        (v) => v.length >= 6 || 'Password must be at least 6 characters'
+      ]"
       required
       class="mb-4"
-    ></v-text-field>
+    />
 
     <!-- Image Upload Box -->
     <div
       class="upload-box mb-4"
-      @drop="handleDrop"
+      @drop.prevent="handleDrop"
       @dragover.prevent
+      @click="openFilePicker"
     >
       <input
+        ref="fileInput"
         type="file"
         accept="image/*"
         class="file-input"
         @change="handleFileChange"
       />
-      <template v-if="imagePreview">
-        <img :src="imagePreview" alt="Profile Preview" class="preview-img" />
-      </template>
-      <template v-else>
-        <div class="placeholder">
-          <span>Click or Drag & Drop to upload image</span>
-        </div>
-      </template>
+      <div v-if="imagePreview" class="text-center">
+        <img :src="imagePreview" alt="Preview" class="preview-img" />
+        <p class="text-caption mt-2">Click or drop to change</p>
+      </div>
+      <div v-else class="placeholder text-center">
+        <v-icon size="48" color="grey">mdi-cloud-upload</v-icon>
+        <p class="mt-2">Click or Drag & Drop to upload image</p>
+      </div>
     </div>
 
-    <!-- Agree to Terms -->
+    <!-- Terms -->
     <v-checkbox
       v-model="agree"
-      :rules="[(v: any) => !!v || 'You must agree to continue!']"
       label="I agree to Terms and Conditions"
       required
       class="mb-4"
-    ></v-checkbox>
+    />
+
+    <!-- Error Alert -->
+    <v-alert v-if="errorMessage" type="error" class="mb-4">
+      {{ errorMessage }}
+    </v-alert>
 
     <!-- Submit Button -->
-    <v-btn color="primary" block large @click="validate()">Sign Up</v-btn>
+    <v-btn
+      color="primary"
+      block
+      size="large"
+      type="submit"
+      :loading="loading"
+      :disabled="loading || !agree"
+    >
+      Create Account
+    </v-btn>
 
     <!-- Login Link -->
-    <div class="mt-5 text-center">
-      <v-divider></v-divider>
-      <v-btn variant="plain" to="/login1" class="mt-2">Already have an account?</v-btn>
+    <div class="text-center mt-6">
+      <v-divider class="mb-4" />
+      <span class="text-grey-darken-1">Already have an account?</span>
+      <v-btn variant="plain" to="/login" class="ml-2">Sign In</v-btn>
     </div>
   </v-form>
 </template>
@@ -207,57 +271,47 @@ function validate() {
 <style lang="scss" scoped>
 .registerForm {
   max-width: 600px;
-  margin: auto;
+  margin: 0 auto;
+  padding: 20px;
+}
 
-  .pwdInput {
-    position: relative;
-    .v-input__append {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-    }
+.upload-box {
+  position: relative;
+  border: 2px dashed #bbb;
+  border-radius: 16px;
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background-color: #fafafa;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #1976d2;
+    background-color: #f0f7ff;
   }
 
-  .upload-box {
-    position: relative;
-    border: 2px dashed #bbb;
-    border-radius: 12px;
-    height: 180px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  .file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
     cursor: pointer;
-    overflow: hidden;
-    transition: border 0.3s, background 0.3s;
+  }
 
-    &:hover {
-      border-color: #1976d2;
-      background-color: rgba(25, 118, 210, 0.05);
-    }
+  .preview-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #1976d2;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
 
-    .file-input {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    .placeholder {
-      text-align: center;
-      color: #888;
-      font-size: 14px;
-      pointer-events: none;
-    }
-
-    .preview-img {
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #1976d2;
-    }
+  .placeholder {
+    color: #666;
+    p { margin: 8px 0 0; font-size: 14px; }
   }
 }
 </style>
