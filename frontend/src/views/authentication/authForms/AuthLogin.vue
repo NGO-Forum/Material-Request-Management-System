@@ -1,24 +1,29 @@
+<!-- src/views/authentication/authForms/AuthLogin.vue -->
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
+const router = useRouter();
 
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
+const rememberMe = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
 const login = async () => {
-  loading.value = true;
   error.value = null;
+  loading.value = true;
 
   try {
     await authStore.login(email.value, password.value);
-    // Redirected automatically by store
+    // Your store usually redirects, fallback just in case
+    router.push({ name: 'Dashboard' });
   } catch (err: any) {
-    error.value = err || 'Invalid email or password';
+    error.value = err?.message || 'Invalid email or password';
   } finally {
     loading.value = false;
   }
@@ -33,7 +38,12 @@ const login = async () => {
       type="email"
       variant="outlined"
       density="comfortable"
-      :rules="[(v) => !!v || 'Email is required']"
+      prepend-inner-icon="mdi-email-outline"
+      :rules="[
+        (v) => !!v || 'Email is required',
+        (v) => /.+@.+\..+/.test(v) || 'Please enter a valid email'
+      ]"
+      autocomplete="username"
       required
       class="mb-4"
     />
@@ -44,19 +54,28 @@ const login = async () => {
       :type="showPassword ? 'text' : 'password'"
       variant="outlined"
       density="comfortable"
+      prepend-inner-icon="mdi-lock-outline"
       :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
       @click:append-inner="showPassword = !showPassword"
       :rules="[(v) => !!v || 'Password is required']"
+      autocomplete="current-password"
       required
       class="mb-4"
     />
 
-    <div class="d-flex justify-space-between mb-4">
-      <v-checkbox label="Remember me" />
-      <a href="#" class="text-primary text-decoration-none">Forgot password?</a>
+    <div class="d-flex justify-space-between align-center mb-6">
+      <v-checkbox v-model="rememberMe" label="Remember me" hide-details />
+      <router-link
+        to="/forgot-password"
+        class="text-primary text-decoration-none font-weight-medium"
+      >
+        Forgot password?
+      </router-link>
     </div>
 
-    <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" type="error" variant="tonal" closable class="mb-6">
+      {{ error }}
+    </v-alert>
 
     <v-btn
       color="primary"
@@ -64,15 +83,19 @@ const login = async () => {
       size="large"
       type="submit"
       :loading="loading"
+      :disabled="loading"
+      class="text-capitalize"
     >
       Sign In
     </v-btn>
 
-    <v-divider class="my-6" />
+    <v-divider class="my-8" />
 
     <div class="text-center">
-      <span>Don't have an account?</span>
-      <v-btn variant="plain" to="/register" class="ml-2">Sign Up</v-btn>
+      <span class="text-medium-emphasis">Don't have an account?</span>
+      <v-btn variant="plain" to="/register" class="ml-2 text-primary font-weight-medium">
+        Sign Up
+      </v-btn>
     </div>
   </form>
 </template>

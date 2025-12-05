@@ -23,7 +23,7 @@ router.beforeEach(async (to, from, next) => {
     await authStore.fetchUser();
   }
 
-  const publicPages = ['/login', '/register'];
+  const publicPages = ['/login', '/register', '/forgot-password'];
   const authRequired = !publicPages.includes(to.path);
 
   if (authRequired && !authStore.isLoggedIn) {
