@@ -5,7 +5,6 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">Users Management</h1>
-
           <v-btn color="primary" @click="openDialog">
             <PlusIcon class="mr-2" :size="20" />
             Add User
@@ -55,24 +54,17 @@
 
             <!-- Role -->
             <template #item.role="{ item }">
-              <v-chip
-                :color="getRoleColor(item.role?.name)"
-                size="small"
-                label
-                class="font-weight-medium"
-              >
+              <v-chip :color="getRoleColor(item.role?.name)" size="small" label>
                 {{ item.role?.name || 'N/A' }}
               </v-chip>
             </template>
 
             <!-- Department -->
             <template #item.department="{ item }">
-              <span class="text-caption">
-                {{ item.department?.name || '—' }}
-              </span>
+              <span class="text-caption">{{ item.department?.name || '—' }}</span>
             </template>
 
-            <!-- Address (optional column) -->
+            <!-- Address -->
             <template #item.address="{ item }">
               <span class="text-caption">
                 {{ item.address ? item.address.substring(0, 40) + (item.address.length > 40 ? '...' : '') : '—' }}
@@ -92,26 +84,24 @@
                     <DotsVerticalIcon :size="20" />
                   </v-btn>
                 </template>
-
                 <v-list density="compact">
                   <v-list-item @click="viewUser(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <EyeIcon :size="18" />
-                      View
+                      <EyeIcon :size="18" /> View
                     </v-list-item-title>
                   </v-list-item>
-
                   <v-list-item @click="openDialog(item)">
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <EditIcon :size="18" />
-                      Edit
+                      <EditIcon :size="18" /> Edit
                     </v-list-item-title>
                   </v-list-item>
-
-                  <v-list-item @click="confirmDelete(item)" class="text-error">
+                  <v-list-item
+                    @click="confirmDelete(item)"
+                    class="text-error"
+                    :disabled="isLastAdmin(item)"
+                  >
                     <v-list-item-title class="d-flex align-center gap-3">
-                      <TrashIcon :size="18" class="text-error" />
-                      Delete
+                      <TrashIcon :size="18" class="text-error" /> Delete
                     </v-list-item-title>
                   </v-list-item>
                 </v-list>
@@ -120,7 +110,7 @@
           </v-data-table>
         </v-card>
 
-        <!-- Add/Edit User Dialog -->
+        <!-- Add/Edit Dialog -->
         <v-dialog v-model="dialog" max-width="800" persistent>
           <v-card class="pa-4">
             <v-card-title class="text-h5 font-weight-bold d-flex align-center gap-3">
@@ -157,13 +147,16 @@
                     <v-text-field
                       v-model="form.password"
                       label="Password"
-                      type="password"
+                      :type="showPassword ? 'text' : 'password'"
                       prepend-inner-icon="LockIcon"
-                      :rules="form.id ? [] : [v => !!v || 'Password required', v => (v && v.length >= 6) || 'Min 6 characters']"
-                      :hint="form.id ? 'Leave blank to keep current' : ''"
+                      :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                      @click:append-inner="showPassword = !showPassword"
+                      :rules="form.id ? [] : [v => !!v || 'Password required', v => v.length >= 6 || 'Min 6 characters']"
+                      :hint="form.id ? 'Leave blank to keep current password' : ''"
                       persistent-hint
                     />
                   </v-col>
+
                   <v-col cols="12" md="6">
                     <v-text-field
                       v-model="form.phone_number"
@@ -172,7 +165,6 @@
                     />
                   </v-col>
 
-                  <!-- Address Field -->
                   <v-col cols="12">
                     <v-textarea
                       v-model="form.address"
@@ -186,14 +178,16 @@
                   <v-col cols="12" md="6">
                     <v-select
                       v-model="form.role_id"
-                      :items="roles"
+                      :items="availableRoles"
                       item-title="name"
                       item-value="id"
                       label="Role"
                       prepend-inner-icon="ShieldIcon"
-                      clearable
+                      :rules="[v => !!v || 'Role is required']"
+                      required
                     />
                   </v-col>
+
                   <v-col cols="12" md="6">
                     <v-select
                       v-model="form.department_id"
@@ -202,59 +196,76 @@
                       item-value="id"
                       label="Department"
                       prepend-inner-icon="BuildingIcon"
-                      clearable
+                      :rules="[v => !!v || 'Department is required']"
+                      required
                     />
                   </v-col>
 
+                  <!-- Beautiful Drag & Drop Image Upload -->
                   <v-col cols="12">
-                    <v-file-input
-                      v-model="form.image_profile"
-                      label="Profile Image"
-                      accept="image/*"
-                      prepend-inner-icon="CameraIcon"
-                      clearable
-                      show-size
-                    />
-                    <div v-if="imagePreview" class="mt-4 text-center">
-                      <v-img :src="imagePreview" max-height="160" max-width="160" class="rounded-lg mx-auto" />
+                    <div
+                      class="upload-box mb-6"
+                      @drop.prevent="handleDrop"
+                      @dragover.prevent
+                      @click="openFilePicker"
+                    >
+                      <input
+                        ref="fileInput"
+                        type="file"
+                        accept="image/*"
+                        class="file-input"
+                        @change="handleFileChange"
+                        hidden
+                      />
+                      <div v-if="imagePreview" class="text-center">
+                        <img :src="imagePreview" alt="Preview" class="preview-img" />
+                        <p class="text-caption mt-2">Click or drop to change image</p>
+                      </div>
+                      <div v-else class="placeholder text-center">
+                        <v-icon size="48" color="grey">mdi-cloud-upload</v-icon>
+                        <p class="mt-2">Click or Drag & Drop to upload image</p>
+                      </div>
                     </div>
                   </v-col>
                 </v-row>
+
+                <!-- Error Alert -->
+                <v-alert
+                  v-if="errorMessage"
+                  type="error"
+                  class="mb-4"
+                  dismissible
+                  @click="errorMessage = ''"
+                >
+                  {{ errorMessage }}
+                </v-alert>
               </v-form>
             </v-card-text>
 
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="confirmClose">Cancel</v-btn>
-              <v-btn
-                color="primary"
-                :loading="saving"
-                :disabled="saving"
-                @click="saveUser"
-              >
-                <CheckIcon class="mr-2" :size="20" v-if="form.id" />
-                <PlusIcon class="mr-2" :size="20" v-else />
-                {{ form.id ? 'Update' : 'Create' }}
+              <v-btn color="primary" :loading="saving" @click="saveUser">
+                {{ form.id ? 'Update User' : 'Create User' }}
               </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
 
-        <!-- Unsaved Changes Dialog -->
-        <v-dialog v-model="confirmDiscardDialog" max-width="460" persistent>
+        <!-- Confirm Discard -->
+        <v-dialog v-model="confirmDiscardDialog" max-width="460">
           <v-card>
             <v-card-title class="text-h6 text-orange-darken-2">
               <AlertTriangleIcon :size="24" class="mr-2" />
               Unsaved Changes
             </v-card-title>
             <v-card-text class="pt-4">
-              You have made changes that haven't been saved.<br>
-              Do you really want to <strong>discard</strong> them?
+              You have unsaved changes. Do you want to discard them?
             </v-card-text>
             <v-card-actions>
               <v-spacer />
-              <v-btn variant="text" @click="confirmDiscardDialog = false">Stay & Continue Editing</v-btn>
-              <v-btn color="error" @click="forceCloseDialog">Discard Changes</v-btn>
+              <v-btn variant="text" @click="confirmDiscardDialog = false">Stay</v-btn>
+              <v-btn color="error" @click="forceCloseDialog">Discard</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -273,14 +284,12 @@
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
-              <v-btn color="error" :loading="deleting" @click="deleteUser">
-                Delete
-              </v-btn>
+              <v-btn color="error" :loading="deleting" @click="deleteUser">Delete</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
 
-        <!-- View User Details -->
+        <!-- View User -->
         <v-dialog v-model="viewDialog" max-width="600">
           <v-card v-if="selectedUser">
             <v-card-title class="text-h5 d-flex align-center gap-3">
@@ -299,30 +308,11 @@
               </div>
               <v-divider />
               <v-list lines="two">
-                <v-list-item>
-                  <v-list-item-title>Phone</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedUser.phone_number || '—' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Address</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedUser.address || '—' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Role</v-list-item-title>
-                  <v-list-item-subtitle>
-                    <v-chip small :color="getRoleColor(selectedUser.role?.name)">
-                      {{ selectedUser.role?.name || '—' }}
-                    </v-chip>
-                  </v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Department</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedUser.department?.name || '—' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Joined</v-list-item-title>
-                  <v-list-item-subtitle>{{ formatDate(selectedUser.created_at) }}</v-list-item-subtitle>
-                </v-list-item>
+                <v-list-item><v-list-item-title>Phone</v-list-item-title><v-list-item-subtitle>{{ selectedUser.phone_number || '—' }}</v-list-item-subtitle></v-list-item>
+                <v-list-item><v-list-item-title>Address</v-list-item-title><v-list-item-subtitle>{{ selectedUser.address || '—' }}</v-list-item-subtitle></v-list-item>
+                <v-list-item><v-list-item-title>Role</v-list-item-title><v-list-item-subtitle><v-chip small :color="getRoleColor(selectedUser.role?.name)">{{ selectedUser.role?.name || '—' }}</v-chip></v-list-item-subtitle></v-list-item>
+                <v-list-item><v-list-item-title>Department</v-list-item-title><v-list-item-subtitle>{{ selectedUser.department?.name || '—' }}</v-list-item-subtitle></v-list-item>
+                <v-list-item><v-list-item-title>Joined</v-list-item-title><v-list-item-subtitle>{{ formatDate(selectedUser.created_at) }}</v-list-item-subtitle></v-list-item>
               </v-list>
             </v-card-text>
             <v-card-actions>
@@ -333,12 +323,7 @@
         </v-dialog>
 
         <!-- Snackbar -->
-        <v-snackbar
-          v-model="snackbar.show"
-          :color="snackbar.color"
-          timeout="4000"
-          location="top"
-        >
+        <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000" location="top">
           <CircleCheckIcon class="mr-2" :size="22" v-if="snackbar.color === 'success'" />
           <CircleXIcon class="mr-2" :size="22" v-else />
           {{ snackbar.message }}
@@ -352,31 +337,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted, computed } from "vue";
 import axiosClient from "@/plugins/axios";
 
-// Icons
 import {
-  PlusIcon,
-  SearchIcon,
-  DotsVerticalIcon,
-  EyeIcon,
-  EditIcon,
-  TrashIcon,
-  UserPlusIcon,
-  UserIcon,
-  MailIcon,
-  LockIcon,
-  PhoneIcon,
-  ShieldIcon,
-  BuildingIcon,
-  CameraIcon,
-  CheckIcon,
-  AlertTriangleIcon,
-  CircleCheckIcon,
-  CircleXIcon,
-  UserCircleIcon,
-  MapPinIcon
+  PlusIcon, SearchIcon, DotsVerticalIcon, EyeIcon, EditIcon, TrashIcon,
+  UserPlusIcon, UserIcon, MailIcon, LockIcon, PhoneIcon, ShieldIcon,
+  BuildingIcon, CheckIcon, AlertTriangleIcon, CircleCheckIcon,
+  CircleXIcon, UserCircleIcon, MapPinIcon
 } from "vue-tabler-icons";
 
 interface Role { id: number; name: string }
@@ -387,7 +355,7 @@ interface User {
   email: string;
   image_profile: string | null;
   phone_number: string | null;
-  address: string | null;           // <-- Added
+  address: string | null;
   role: { id: number; name: string } | null;
   department: { id: number; name: string } | null;
   created_at: string;
@@ -407,18 +375,15 @@ const confirmDiscardDialog = ref(false);
 const selectedUser = ref<User | null>(null);
 const userToDelete = ref<User | null>(null);
 const formDirty = ref(false);
+const showPassword = ref(false);
+const errorMessage = ref<string>("");
+const fileInput = ref<HTMLInputElement | null>(null);
+const imagePreview = ref<string | null>(null);
 
-const snackbar = ref({
-  show: false,
-  message: "",
-  color: "success" as "success" | "error"
-});
-
+const snackbar = ref({ show: false, message: "", color: "success" as "success" | "error" });
 const showMessage = (message: string, color: "success" | "error" = "success") => {
   snackbar.value = { show: true, message, color };
 };
-
-let currentImageUrl = "";
 
 const form = ref({
   id: null as number | null,
@@ -426,20 +391,35 @@ const form = ref({
   email: "",
   password: "",
   phone_number: "",
-  address: "",                      // <-- Added
+  address: "",
   image_profile: null as File | null,
   role_id: null as number | null,
   department_id: null as number | null,
 });
 
-const imagePreview = ref<string | null>(null);
+let currentImageUrl = "";
+
+// Hide "Admin" role from dropdown if one already exists (except when editing the admin)
+const availableRoles = computed(() => {
+  const hasAdmin = users.value.some(u => u.role?.name.toLowerCase() === 'admin');
+  const adminRole = roles.value.find(r => r.name.toLowerCase() === 'admin');
+  if (hasAdmin && adminRole && !form.value.id) {
+    return roles.value.filter(r => r.id !== adminRole.id);
+  }
+  return roles.value;
+});
+
+const isLastAdmin = (user: User) => {
+  return user.role?.name.toLowerCase() === 'admin' &&
+    users.value.filter(u => u.role?.name.toLowerCase() === 'admin').length === 1;
+};
 
 const headers = [
   { title: "Avatar", key: "image_profile", sortable: false, width: 100, align: "center" },
   { title: "Name", key: "name" },
   { title: "Email", key: "email" },
   { title: "Phone", key: "phone_number" },
-  { title: "Address", key: "address", sortable: false },   // Optional column
+  { title: "Address", key: "address", sortable: false },
   { title: "Role", key: "role", sortable: false },
   { title: "Department", key: "department", sortable: false },
   { title: "Joined", key: "created_at" },
@@ -464,28 +444,19 @@ onMounted(async () => {
 });
 
 const getImageUrl = (url: string | null, name: string = "User") => {
-  if (!url) {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&bold=true&rounded=true`;
-  }
+  if (!url) return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&bold=true&rounded=true`;
   return url.startsWith("http") ? url : `${import.meta.env.VITE_APP_URL || ""}${url}`;
 };
 
 const getRoleColor = (role: string | undefined) => {
   const map: Record<string, string> = {
-    admin: "red",
-    superadmin: "deep-purple",
-    manager: "orange",
-    employee: "blue",
-    editor: "purple",
-    user: "green",
-    developer: "indigo"
+    admin: "red", superadmin: "deep-purple", manager: "orange",
+    employee: "blue", editor: "purple", user: "green", developer: "indigo"
   };
   return map[role?.toLowerCase() || ""] || "grey";
 };
 
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-};
+const formatDate = (date: string) => new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
 const openDialog = (user?: User) => {
   if (user) {
@@ -495,7 +466,7 @@ const openDialog = (user?: User) => {
       email: user.email,
       password: "",
       phone_number: user.phone_number || "",
-      address: user.address || "",               // <-- Populate address
+      address: user.address || "",
       image_profile: null,
       role_id: user.role?.id || null,
       department_id: user.department?.id || null,
@@ -503,53 +474,61 @@ const openDialog = (user?: User) => {
     currentImageUrl = getImageUrl(user.image_profile, user.name);
     imagePreview.value = currentImageUrl;
   } else {
-    form.value = {
-      id: null,
-      name: "",
-      email: "",
-      password: "",
-      phone_number: "",
-      address: "",
-      image_profile: null,
-      role_id: null,
-      department_id: null,
-    };
-    currentImageUrl = "";
+    form.value = { id: null, name: "", email: "", password: "", phone_number: "", address: "", image_profile: null, role_id: null, department_id: null };
     imagePreview.value = null;
+    currentImageUrl = "";
   }
+  errorMessage.value = "";
   formDirty.value = false;
   dialog.value = true;
 };
 
-const confirmClose = () => {
-  formDirty.value ? (confirmDiscardDialog.value = true) : closeDialog();
-};
-
-const forceCloseDialog = () => {
-  confirmDiscardDialog.value = false;
-  closeDialog();
-};
-
+const confirmClose = () => formDirty.value ? (confirmDiscardDialog.value = true) : closeDialog();
+const forceCloseDialog = () => { confirmDiscardDialog.value = false; closeDialog(); };
 const closeDialog = () => {
   dialog.value = false;
   formDirty.value = false;
-  if (imagePreview.value?.startsWith("blob:")) {
-    URL.revokeObjectURL(imagePreview.value);
-    imagePreview.value = null;
+  if (imagePreview.value?.startsWith("blob:")) URL.revokeObjectURL(imagePreview.value);
+  imagePreview.value = null;
+};
+
+// Image Upload Handlers
+const handleFileChange = (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  if (input.files?.[0]) {
+    form.value.image_profile = input.files[0];
+    previewImage(input.files[0]);
   }
 };
 
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault();
+  const file = e.dataTransfer?.files[0];
+  if (file && file.type.startsWith('image/')) {
+    form.value.image_profile = file;
+    previewImage(file);
+  }
+};
+
+const previewImage = (file: File) => {
+  if (imagePreview.value?.startsWith("blob:")) URL.revokeObjectURL(imagePreview.value);
+  imagePreview.value = URL.createObjectURL(file);
+};
+
+const openFilePicker = () => fileInput.value?.click();
+
 const saveUser = async () => {
+  errorMessage.value = "";
+
   const data = new FormData();
   data.append("name", form.value.name);
   data.append("email", form.value.email);
-  if (!form.value.id) data.append("password", form.value.password);
-  else if (form.value.password) data.append("password", form.value.password);
+  if (form.value.password) data.append("password", form.value.password);
   if (form.value.phone_number) data.append("phone_number", form.value.phone_number);
-  if (form.value.address) data.append("address", form.value.address);         // <-- Send address
-  if (form.value.role_id !== null) data.append("role_id", form.value.role_id.toString());
-  if (form.value.department_id !== null) data.append("department_id", form.value.department_id.toString());
-  if (form.value.image_profile instanceof File) data.append("image_profile", form.value.image_profile);
+  if (form.value.address) data.append("address", form.value.address);
+  data.append("role_id", form.value.role_id!.toString());
+  data.append("department_id", form.value.department_id!.toString());
+  if (form.value.image_profile) data.append("image_profile", form.value.image_profile);
 
   try {
     saving.value = true;
@@ -562,29 +541,26 @@ const saveUser = async () => {
       showMessage("User updated successfully");
     } else {
       response = await axiosClient.post("/users", data);
-      const newUser = response.data.data || response.data;
-      users.value.unshift(newUser);
+      users.value.unshift(response.data.data || response.data);
       showMessage("User created successfully");
     }
     closeDialog();
   } catch (err: any) {
-    const msg = err.response?.data?.message ||
-                (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(", ") : "Operation failed");
-    showMessage(msg, "error");
+    const validationErrors = err.response?.data?.errors;
+    const backendMessage = err.response?.data?.message;
+    const message = validationErrors
+      ? Object.values(validationErrors as Record<string, string[]>).flat().join(", ")
+      : backendMessage ?? "Operation failed";
+
+    errorMessage.value = message;
+    showMessage(message, "error");
   } finally {
     saving.value = false;
   }
 };
 
-const viewUser = (user: User) => {
-  selectedUser.value = user;
-  viewDialog.value = true;
-};
-
-const confirmDelete = (user: User) => {
-  userToDelete.value = user;
-  deleteDialog.value = true;
-};
+const viewUser = (user: User) => { selectedUser.value = user; viewDialog.value = true; };
+const confirmDelete = (user: User) => { userToDelete.value = user; deleteDialog.value = true; };
 
 const deleteUser = async () => {
   if (!userToDelete.value) return;
@@ -594,7 +570,7 @@ const deleteUser = async () => {
     users.value = users.value.filter(u => u.id !== userToDelete.value!.id);
     showMessage("User deleted successfully");
   } catch {
-    showMessage("Failed to delete user", "error");
+    showMessage("Cannot delete the last Admin user", "error");
   } finally {
     deleting.value = false;
     deleteDialog.value = false;
@@ -602,11 +578,9 @@ const deleteUser = async () => {
   }
 };
 
-watch(() => form.value.image_profile, (newFile) => {
-  if (imagePreview.value?.startsWith("blob:")) URL.revokeObjectURL(imagePreview.value);
-  imagePreview.value = newFile instanceof File ? URL.createObjectURL(newFile) : currentImageUrl;
+watch(() => form.value.image_profile, (file) => {
+  if (file instanceof File) previewImage(file);
 });
-
 watch(form, () => { formDirty.value = true; }, { deep: true });
 
 onUnmounted(() => {
@@ -616,4 +590,32 @@ onUnmounted(() => {
 
 <style scoped>
 .cursor-pointer { cursor: pointer; }
+.upload-box {
+  position: relative;
+  border: 2px dashed #bbb;
+  border-radius: 16px;
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background-color: #fafafa;
+  transition: all 0.3s ease;
+}
+.upload-box:hover {
+  border-color: #1976d2;
+  background-color: #f0f7ff;
+}
+.file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.preview-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #1976d2;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.placeholder { color: #666; }
+.placeholder p { margin: 8px 0 0; font-size: 14px; }
 </style>

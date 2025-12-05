@@ -3,12 +3,10 @@ import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import axiosClient from '@/plugins/axios';
 
-// Fix: Properly type the file input ref
 const fileInput = ref<HTMLInputElement | null>(null);
-
 const authStore = useAuthStore();
-
 const form = ref<any>(null);
+
 const name = ref('');
 const email = ref('');
 const password = ref('');
@@ -35,9 +33,9 @@ const fetchRolesAndDepartments = async () => {
     ]);
     roles.value = rolesRes.data.data || rolesRes.data;
     departments.value = deptsRes.data.data || deptsRes.data;
-  } catch (err) {
-    console.error('Failed to load roles/departments:', err);
+  } catch (err: any) {
     errorMessage.value = 'Failed to load roles or departments.';
+    console.error(err);
   }
 };
 
@@ -45,7 +43,7 @@ onMounted(() => {
   fetchRolesAndDepartments();
 });
 
-// Image Upload Handlers
+// Image handlers
 const handleFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement;
   if (input.files?.[0]) {
@@ -72,7 +70,6 @@ const previewImage = (file: File) => {
   reader.readAsDataURL(file);
 };
 
-// Open file picker when upload box is clicked
 const openFilePicker = () => {
   fileInput.value?.click();
 };
@@ -109,8 +106,22 @@ const submitRegister = async () => {
 
   try {
     await authStore.register(formData);
+    // Optional: redirect after success
+    // router.push('/dashboard');
   } catch (err: any) {
-    errorMessage.value = err.message || 'Registration failed. Please try again.';
+    // Improved error handling from Laravel validation
+    if (err.response?.data?.errors) {
+      const errors = err.response.data.errors;
+      if (errors.role_id) {
+        errorMessage.value = errors.role_id[0];
+      } else if (errors.email) {
+        errorMessage.value = errors.email[0];
+      } else {
+        errorMessage.value = 'Registration failed. Please check your input.';
+      }
+    } else {
+      errorMessage.value = err.message || 'Registration failed. Please try again.';
+    }
   } finally {
     loading.value = false;
   }
@@ -204,13 +215,13 @@ const submitRegister = async () => {
       @click:append-inner="showPassword = !showPassword"
       :rules="[
         (v) => !!v || 'Password is required',
-        (v) => v.length >= 6 || 'Password must be at least 6 characters'
+        (v) => (v && v.length >= 6) || 'Password must be at least 6 characters'
       ]"
       required
       class="mb-4"
     />
 
-    <!-- Image Upload Box -->
+    <!-- Image Upload -->
     <div
       class="upload-box mb-4"
       @drop.prevent="handleDrop"
@@ -223,6 +234,7 @@ const submitRegister = async () => {
         accept="image/*"
         class="file-input"
         @change="handleFileChange"
+        hidden
       />
       <div v-if="imagePreview" class="text-center">
         <img :src="imagePreview" alt="Preview" class="preview-img" />
@@ -243,11 +255,11 @@ const submitRegister = async () => {
     />
 
     <!-- Error Alert -->
-    <v-alert v-if="errorMessage" type="error" class="mb-4">
+    <v-alert v-if="errorMessage" type="error" class="mb-4" dismissible>
       {{ errorMessage }}
     </v-alert>
 
-    <!-- Submit Button -->
+    <!-- Submit -->
     <v-btn
       color="primary"
       block
@@ -311,7 +323,10 @@ const submitRegister = async () => {
 
   .placeholder {
     color: #666;
-    p { margin: 8px 0 0; font-size: 14px; }
+    p {
+      margin: 8px 0 0;
+      font-size: 14px;
+    }
   }
 }
 </style>

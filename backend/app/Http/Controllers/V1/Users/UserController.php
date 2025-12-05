@@ -4,14 +4,14 @@ namespace App\Http\Controllers\V1\Users;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    // List all users
     public function index()
     {
         $users = User::with(['role', 'department'])->get();
@@ -24,38 +24,92 @@ class UserController extends Controller
         return response()->json($users, 200);
     }
 
-    // Create a new user
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        return $this->saveUser($request);
+    }
+
+    public function update(Request $request, $id)
+    {
+        return $this->saveUser($request, $id);
+    }
+
+    private function saveUser(Request $request, $id = null)
+    {
+        $isUpdate = !is_null($id);
+        $user = $isUpdate ? User::findOrFail($id) : null;
+
+        $rules = [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+            'email' => 'required|email|unique:users,email' . ($isUpdate ? ',' . $id : ''),
+            'password' => ($isUpdate ? 'nullable' : 'required') . '|string|min:6',
             'image_profile' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'phone_number' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
-            'role_id' => 'nullable|exists:roles,id',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
+            'role_id' => 'required|exists:roles,id',
+            'department_id' => 'required|exists:departments,id',
+        ];
 
+        $validated = $request->validate($rules);
+
+        // === PREVENT MULTIPLE ADMINS ===
+        $adminRole = Role::where('name', 'Admin')->first();
+        if ($adminRole && $validated['role_id'] == $adminRole->id) {
+            $existingAdmin = User::where('role_id', $adminRole->id);
+
+            if ($isUpdate) {
+                $existingAdmin->where('id', '!=', $id);
+            }
+
+            if ($existingAdmin->exists()) {
+                throw ValidationException::withMessages([
+                    'role_id' => 'Only one Admin user is allowed.'
+                ]);
+            }
+        }
+
+        // Handle password
+        if (!empty($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
+
+        // Handle image upload
         if ($request->hasFile('image_profile')) {
+            // Delete old image if exists
+            if ($isUpdate && $user->image_profile) {
+                $oldPath = str_replace('/storage/', '', parse_url($user->image_profile, PHP_URL_PATH));
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+
             $path = $request->file('image_profile')->store('user_profiles', 'public');
             $validated['image_profile'] = '/storage/' . $path;
         }
 
-        $validated['password'] = Hash::make($validated['password']);
-        $user = User::create($validated);
+        if ($isUpdate) {
+            $user->update($validated);
+            $user->load('role', 'department');
+            $user->image_profile = $user->image_profile ? url($user->image_profile) : null;
 
-        $user->load('role', 'department');
-        $user->image_profile = $user->image_profile ? url($user->image_profile) : null;
+            return response()->json([
+                'message' => 'User updated successfully',
+                'data' => $user
+            ], 200);
+        } else {
+            $user = User::create($validated);
+            $user->load('role', 'department');
+            $user->image_profile = $user->image_profile ? url($user->image_profile) : null;
 
-        return response()->json([
-            'message' => 'User created successfully',
-            'data' => $user
-        ], 201);
+            return response()->json([
+                'message' => 'User created successfully',
+                'data' => $user
+            ], 201);
+        }
     }
 
-    // Show a single user
     public function show($id)
     {
         $user = User::with(['role', 'department'])->findOrFail($id);
@@ -64,61 +118,29 @@ class UserController extends Controller
         return response()->json($user, 200);
     }
 
-    // Update a user
-    public function update(Request $request, $id)
-    {
-        $user = User::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'password' => 'nullable|string|min:6',
-            'image_profile' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'phone_number' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:500',
-            'role_id' => 'nullable|exists:roles,id',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        if (!empty($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
-        }
-
-        if ($request->hasFile('image_profile')) {
-            if ($user->image_profile) {
-                $oldPath = str_replace('/storage/', '', $user->image_profile);
-                Storage::disk('public')->delete($oldPath);
-            }
-            $path = $request->file('image_profile')->store('user_profiles', 'public');
-            $validated['image_profile'] = '/storage/' . $path;
-        }
-
-        $user->update($validated);
-
-        $user->load('role', 'department');
-        $user->image_profile = $user->image_profile ? url($user->image_profile) : null;
-
-        return response()->json([
-            'message' => 'User updated successfully',
-            'data' => $user
-        ], 200);
-    }
-
-    // Delete a user
     public function destroy($id)
     {
         $user = User::findOrFail($id);
 
-        if ($user->image_profile && Storage::exists(str_replace('/storage/', 'public/', $user->image_profile))) {
-            Storage::delete(str_replace('/storage/', 'public/', $user->image_profile));
+        // Prevent deleting the only Admin
+        if ($user->role && strtolower($user->role->name) === 'admin') {
+            $adminCount = User::whereHas('role', fn($q) => $q->where('name', 'Admin'))->count();
+            if ($adminCount <= 1) {
+                return response()->json([
+                    'message' => 'Cannot delete the only Admin user.'
+                ], 403);
+            }
+        }
+
+        if ($user->image_profile) {
+            $path = str_replace('/storage/', '', parse_url($user->image_profile, PHP_URL_PATH));
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
         }
 
         $user->delete();
 
-        return response()->json([
-            'message' => 'User deleted successfully'
-        ], 200);
+        return response()->json(['message' => 'User deleted successfully'], 200);
     }
 }
