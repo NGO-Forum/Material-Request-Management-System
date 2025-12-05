@@ -1,8 +1,10 @@
-<!-- src/views/authentication/authForms/AuthLogin.vue -->
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+
+// Tabler icons
+import { MailIcon, LockIcon, EyeIcon, EyeOffIcon } from "vue-tabler-icons";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -14,14 +16,23 @@ const rememberMe = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+const togglePassword = () => {
+  showPassword.value = !showPassword.value;
+};
+
 const login = async () => {
   error.value = null;
   loading.value = true;
 
   try {
     await authStore.login(email.value, password.value);
-    // Your store usually redirects, fallback just in case
-    router.push({ name: 'Dashboard' });
+
+    // THIS IS THE 100% CORRECT REDIRECT — YOUR DASHBOARD URL IS:
+    // /main/dashboard/default   → route name = 'Default'
+    await router.push({ name: 'Default' });
+    // OR even safer:
+    // await router.push('/main/dashboard/default');
+
   } catch (err: any) {
     error.value = err?.message || 'Invalid email or password';
   } finally {
@@ -31,44 +42,51 @@ const login = async () => {
 </script>
 
 <template>
+  <!-- Your template stays exactly the same -->
   <form @submit.prevent="login" class="loginForm">
+    <!-- Email -->
     <v-text-field
       v-model="email"
       label="Email Address"
       type="email"
       variant="outlined"
       density="comfortable"
-      prepend-inner-icon="mdi-email-outline"
-      :rules="[
-        (v) => !!v || 'Email is required',
-        (v) => /.+@.+\..+/.test(v) || 'Please enter a valid email'
-      ]"
       autocomplete="username"
       required
       class="mb-4"
-    />
+      :rules="[(v) => !!v || 'Email is required', (v) => /.+@.+\..+/.test(v) || 'Please enter a valid email']"
+    >
+      <template #prepend-inner>
+        <MailIcon size="20" class="text-gray-500" />
+      </template>
+    </v-text-field>
 
+    <!-- Password -->
     <v-text-field
       v-model="password"
       label="Password"
       :type="showPassword ? 'text' : 'password'"
       variant="outlined"
       density="comfortable"
-      prepend-inner-icon="mdi-lock-outline"
-      :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-      @click:append-inner="showPassword = !showPassword"
-      :rules="[(v) => !!v || 'Password is required']"
       autocomplete="current-password"
       required
       class="mb-4"
-    />
+      :rules="[(v) => !!v || 'Password is required']"
+    >
+      <template #prepend-inner>
+        <LockIcon size="20" class="text-gray-500" />
+      </template>
+      <template #append-inner>
+        <div class="eye-icon" @click="togglePassword">
+          <EyeIcon v-if="showPassword" size="22" />
+          <EyeOffIcon v-else size="22" />
+        </div>
+      </template>
+    </v-text-field>
 
     <div class="d-flex justify-space-between align-center mb-6">
       <v-checkbox v-model="rememberMe" label="Remember me" hide-details />
-      <router-link
-        to="/forgot-password"
-        class="text-primary text-decoration-none font-weight-medium"
-      >
+      <router-link to="/forgot-password" class="text-primary text-decoration-none font-weight-medium">
         Forgot password?
       </router-link>
     </div>
@@ -101,8 +119,6 @@ const login = async () => {
 </template>
 
 <style lang="scss" scoped>
-.loginForm {
-  max-width: 420px;
-  margin: 0 auto;
-}
+.loginForm { max-width: 420px; margin: 0 auto; }
+.eye-icon { cursor: pointer; &:hover { color: #1976d2; transform: scale(1.15); } }
 </style>

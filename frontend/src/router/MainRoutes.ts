@@ -1,34 +1,28 @@
+// src/router/MainRoutes.ts
 const MainRoutes = {
   path: '/main',
-  meta: {
-    requiresAuth: true
-  },
-  redirect: '/main/dashboard/default',
+  meta: { requiresAuth: true },
   component: () => import('@/layouts/full/FullLayout.vue'),
+  redirect: '/main/dashboard/default',
   children: [
     {
-      name: 'LandingPage',
-      path: '/',
+      name: 'Default',                          
+      path: 'dashboard/default',                
       component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
     },
     {
-      name: 'Default',
-      path: '/main/dashboard/default',
-      component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
+      name: 'Users',
+      path: 'users',
+      component: () => import('@/views/users/UsersView.vue')
     },
     {
-    name: 'Users',
-    path: '/main/users',  
-    component: () => import('@/views/users/UsersView.vue')
-  },
-  {
-    name: 'Roles',
-    path: '/main/roles',
-    component: () => import('@/views/roles/RolesView.vue')
-  },
-  {
+      name: 'Roles',
+      path: 'roles',
+      component: () => import('@/views/roles/RolesView.vue')
+    },
+    {
       name: 'Departments',
-      path: '/main/departments',
+      path: 'departments',
       component: () => import('@/views/departments/DepartmentsView.vue')
     },
   ]
