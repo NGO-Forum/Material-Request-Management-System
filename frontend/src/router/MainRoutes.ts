@@ -36,6 +36,11 @@ const MainRoutes = {
       component: () => import('@/views/materials/MaterialsView.vue')
     },
     {
+      name: 'Profile',
+      path: 'profile',
+      component: () => import('@/views/profile/ProfileView.vue')
+    },
+    {
       name: 'Error 404',
       path: 'error',
       component: () => import('@/views/pages/maintenance/error/Error404Page.vue')
