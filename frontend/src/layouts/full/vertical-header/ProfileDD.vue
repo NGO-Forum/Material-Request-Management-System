@@ -3,9 +3,11 @@ import { useAuthStore } from '@/stores/auth';
 import { LogoutIcon, UserIcon, MailIcon, ShieldIcon } from 'vue-tabler-icons';
 import Swal from 'sweetalert2';
 
+// Get auth store
 const authStore = useAuthStore();
 
-const confirmLogout = () => {
+// Logout confirmation
+const confirmLogout = (): void => {
   Swal.fire({
     title: '<span style="font-size: 1.8rem; font-weight: 700;">Logout?</span>',
     html: `<p style="font-size: 1.1rem; color: #666; margin: 16px 0;">
@@ -25,7 +27,6 @@ const confirmLogout = () => {
       cancelButton: 'swal-cancel-btn',
       actions: 'swal-actions',
     },
-    // Add beautiful icon animation
     iconHtml: '<div class="swal-icon-animate">?</div>',
   }).then((result) => {
     if (result.isConfirmed) {
@@ -54,10 +55,11 @@ const confirmLogout = () => {
     <!-- User Info -->
     <div class="flex items-center gap-4 mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
       <v-avatar size="70" class="ring-4 ring-primary/30 shadow-lg">
-        <img
+        <v-img
           :src="authStore.user?.image_profile || `https://ui-avatars.com/api/?name=${encodeURIComponent(authStore.user?.name || 'User')}&background=6366f1&color=fff&bold=true&size=128`"
-          :alt="authStore.user?.name"
+          :alt="authStore.user?.name || 'User'"
           class="rounded-full object-cover"
+          cover
         />
       </v-avatar>
       <div>
@@ -103,7 +105,7 @@ const confirmLogout = () => {
 </template>
 
 <style scoped>
-/* Beautiful SweetAlert2 Popup */
+/* SweetAlert2 Custom Styles */
 .swal-popup {
   border-radius: 20px !important;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2) !important;
@@ -116,7 +118,6 @@ const confirmLogout = () => {
   justify-content: center !important;
 }
 
-/* Confirm Button (Red) */
 .swal-confirm-btn {
   background: linear-gradient(135deg, #ef4444, #dc2626) !important;
   color: white !important;
@@ -134,7 +135,6 @@ const confirmLogout = () => {
   box-shadow: 0 12px 28px rgba(239, 68, 68, 0.5) !important;
 }
 
-/* Cancel Button (Gray) */
 .swal-cancel-btn {
   background: linear-gradient(135deg, #6b7280, #4b5563) !important;
   color: white !important;
@@ -152,7 +152,6 @@ const confirmLogout = () => {
   box-shadow: 0 12px 28px rgba(107, 114, 128, 0.5) !important;
 }
 
-/* Animated Question Icon */
 .swal-icon-animate {
   font-size: 4rem;
   animation: float 3s ease-in-out infinite;

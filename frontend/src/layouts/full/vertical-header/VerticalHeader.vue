@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth';
-import { useCustomizerStore } from '@/stores/customizer'; // ← Fixed import
+import { useCustomizerStore } from '@/stores/customizer';
 import { ref } from 'vue';
 import { BellIcon, SettingsIcon, SearchIcon, Menu2Icon } from 'vue-tabler-icons';
 
@@ -10,7 +10,7 @@ import ProfileDD from './ProfileDD.vue';
 import Searchbar from './SearchBarPanel.vue';
 
 const authStore = useAuthStore();
-const customizer = useCustomizerStore(); // ← Now works!
+const customizer = useCustomizerStore();
 const showSearch = ref(false);
 
 const searchbox = () => {
@@ -96,17 +96,23 @@ const searchbox = () => {
     <v-menu :close-on-content-click="false">
       <template v-slot:activator="{ props }">
         <v-btn
-          class="profileBtn text-primary"
+          class="profileBtn text-primary d-flex align-center"
           color="lightprimary"
           variant="flat"
           rounded="pill"
           v-bind="props"
         >
-          <v-avatar size="36" class="mr-3">
-            <img
+          <v-avatar
+            size="40"
+            class="mr-3"
+            style="border: 2px solid #6366f1; box-shadow: 0 2px 6px rgba(0,0,0,0.1);"
+          >
+            <v-img
               :src="authStore.user?.image_profile || `https://ui-avatars.com/api/?name=${encodeURIComponent(authStore.user?.name || 'User')}&background=6366f1&color=fff&bold=true`"
               :alt="authStore.user?.name || 'User'"
               class="object-cover"
+              lazy-src="https://via.placeholder.com/40?text=..."
+              cover
             />
           </v-avatar>
           <SettingsIcon stroke-width="1.5" />
@@ -128,5 +134,16 @@ const searchbox = () => {
   z-index: 999;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Profile button hover effect */
+.profileBtn:hover {
+  background-color: #f3f4f6; /* Light surface hover */
+  transition: background-color 0.2s ease;
+}
+
+/* Avatar image styling */
+.v-avatar img {
+  border-radius: 50%;
 }
 </style>
