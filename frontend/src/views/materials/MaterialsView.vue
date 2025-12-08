@@ -25,7 +25,7 @@
           </v-card-title>
 
           <v-data-table
-            :headers="headers"
+            :headers="visibleHeaders"
             :items="materials"
             :search="search"
             :loading="loading"
@@ -49,6 +49,13 @@
                   </template>
                 </v-img>
               </v-avatar>
+            </template>
+
+            <!-- Name (always visible) -->
+            <template #item.name="{ item }">
+              <div class="text-truncate font-weight-medium" style="max-width: 180px;">
+                {{ item.name }}
+              </div>
             </template>
 
             <!-- Category -->
@@ -329,6 +336,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { useDisplay } from 'vuetify'
 import axiosClient from '@/plugins/axios'
 import {
   PlusIcon,
@@ -337,7 +345,7 @@ import {
   EditIcon,
   TrashIcon,
   AlertTriangleIcon,
-  AlertCircleIcon
+  AlertCircleIcon,
 } from 'vue-tabler-icons'
 
 interface Category { id: number; name: string }
@@ -397,9 +405,12 @@ const form = ref({
 
 const remainingStock = computed(() => form.value.qty_stock - form.value.qty_issued)
 
-const headers = [
+// Responsive headers
+const { smAndDown, xs } = useDisplay()
+
+const baseHeaders = [
   { title: 'Image', key: 'image', sortable: false, width: 100, align: 'center' as const },
-  { title: 'Name', key: 'name' },
+  { title: 'Name', key: 'name', width: 200 },
   { title: 'Model', key: 'model' },
   { title: 'Serial', key: 'serial_number' },
   { title: 'Category', key: 'category', sortable: false },
@@ -408,14 +419,31 @@ const headers = [
   { title: 'Actions', key: 'actions', sortable: false, align: 'center' as const }
 ]
 
+const visibleHeaders = computed(() => {
+  let headers = [...baseHeaders]
+
+  if (smAndDown.value) {
+    headers = headers.filter(h => 
+      !['model', 'serial_number', 'category', 'qty_remaining', 'condition'].includes(h.key)
+    )
+  }
+
+  // Optional: even more compact on phones
+  if (xs.value) {
+    // Already very clean — only Image, Name, Actions remain
+  }
+
+  return headers
+})
+
 onMounted(async () => {
   try {
     const [mRes, cRes] = await Promise.all([
       axiosClient.get('/materials'),
       axiosClient.get('/categories')
     ])
-    materials.value = mRes.data
-    categories.value = cRes.data
+    materials.value = mRes.data.data || mRes.data
+    categories.value = cRes.data.data || cRes.data
   } catch {
     showMessage('Failed to load data', 'error')
   } finally {

@@ -26,7 +26,7 @@
           </v-card-title>
 
           <v-data-table
-            :headers="headers"
+            :headers="visibleHeaders"
             :items="users"
             :search="search"
             :loading="loading"
@@ -50,6 +50,13 @@
                   </template>
                 </v-img>
               </v-avatar>
+            </template>
+
+            <!-- Name - Always visible -->
+            <template #item.name="{ item }">
+              <div class="font-weight-medium text-truncate" style="max-width: 180px;">
+                {{ item.name }}
+              </div>
             </template>
 
             <!-- Role -->
@@ -201,7 +208,7 @@
                     />
                   </v-col>
 
-                  <!-- Beautiful Drag & Drop Image Upload -->
+                  <!-- Image Upload -->
                   <v-col cols="12">
                     <div
                       class="upload-box mb-6"
@@ -229,7 +236,6 @@
                   </v-col>
                 </v-row>
 
-                <!-- Error Alert -->
                 <v-alert
                   v-if="errorMessage"
                   type="error"
@@ -338,13 +344,14 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from "vue";
+import { useDisplay } from "vuetify";
 import axiosClient from "@/plugins/axios";
 
 import {
   PlusIcon, SearchIcon, DotsVerticalIcon, EyeIcon, EditIcon, TrashIcon,
   UserPlusIcon, UserIcon, MailIcon, LockIcon, PhoneIcon, ShieldIcon,
-  BuildingIcon, CheckIcon, AlertTriangleIcon, CircleCheckIcon,
-  CircleXIcon, UserCircleIcon, MapPinIcon
+  BuildingIcon, AlertTriangleIcon, CircleCheckIcon, CircleXIcon,
+  UserCircleIcon, MapPinIcon
 } from "vue-tabler-icons";
 
 interface Role { id: number; name: string }
@@ -399,7 +406,40 @@ const form = ref({
 
 let currentImageUrl = "";
 
-// Hide "Admin" role from dropdown if one already exists (except when editing the admin)
+// Responsive breakpoints
+const { smAndDown } = useDisplay();
+
+interface TableHeader {
+  readonly title: string;
+  readonly key: string;
+  readonly sortable?: boolean;
+  readonly width?: number | string;
+  readonly align?: "start" | "center" | "end";
+}
+
+const baseHeaders = [
+  { title: "Avatar", key: "image_profile", sortable: false, width: 100, align: "center" },
+  { title: "Name", key: "name", align: "start" },
+  { title: "Email", key: "email", align: "start" },
+  { title: "Phone", key: "phone_number", align: "start" },
+  { title: "Address", key: "address", sortable: false, align: "start" },
+  { title: "Role", key: "role", sortable: false, align: "center" },
+  { title: "Department", key: "department", sortable: false, align: "center" },
+  { title: "Joined", key: "created_at", align: "end" },
+  { title: "Actions", key: "actions", sortable: false, align: "center", width: 80 },
+] as const satisfies readonly TableHeader[];
+
+// Responsive visible headers
+const visibleHeaders = computed(() => {
+  if (smAndDown.value) {
+    return baseHeaders.filter(h => 
+      ['image_profile', 'name', 'actions'].includes(h.key)
+    );
+  }
+  return baseHeaders;
+});
+
+// Prevent multiple admins
 const availableRoles = computed(() => {
   const hasAdmin = users.value.some(u => u.role?.name.toLowerCase() === 'admin');
   const adminRole = roles.value.find(r => r.name.toLowerCase() === 'admin');
@@ -413,27 +453,6 @@ const isLastAdmin = (user: User) => {
   return user.role?.name.toLowerCase() === 'admin' &&
     users.value.filter(u => u.role?.name.toLowerCase() === 'admin').length === 1;
 };
-
-type UserTableHeader = {
-  readonly title: string;
-  readonly key: string;
-  readonly sortable?: boolean;
-  readonly width?: number | string;
-  readonly align?: "start" | "center" | "end";
-};
-
-const headers: readonly UserTableHeader[] = [
-  { title: "Avatar", key: "image_profile", sortable: false, width: 100, align: "center" },
-  { title: "Name", key: "name", align: "start" },
-  { title: "Email", key: "email", align: "start" },
-  { title: "Phone", key: "phone_number", align: "start" },
-  { title: "Address", key: "address", sortable: false, align: "start" },
-  { title: "Role", key: "role", sortable: false, align: "center" },
-  { title: "Department", key: "department", sortable: false, align: "center" },
-  { title: "Joined", key: "created_at", align: "end" },
-  { title: "Actions", key: "actions", sortable: false, align: "center" },
-];
-
 
 onMounted(async () => {
   try {
@@ -501,7 +520,7 @@ const closeDialog = () => {
   imagePreview.value = null;
 };
 
-// Image Upload Handlers
+// Image Upload
 const handleFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement;
   if (input.files?.[0]) {
