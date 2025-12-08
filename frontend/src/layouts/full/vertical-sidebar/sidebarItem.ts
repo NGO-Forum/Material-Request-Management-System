@@ -1,16 +1,16 @@
-// src/layouts/vertical-sidebar/sidebarItem.ts
+// src/layouts/full/vertical-sidebar/sidebarItem.ts
 import {
   DashboardIcon,
   ClipboardTextIcon,
   ListCheckIcon,
-  UserPlusIcon,
   ReportIcon,
   FileTextIcon,
   ShieldIcon,
   UserIcon,
   BuildingIcon,
   AlertTriangleIcon,
-  HelpIcon
+  HelpIcon,
+  PackageIcon,        
 } from 'vue-tabler-icons';
 
 export interface Menu {
@@ -46,14 +46,14 @@ const sidebarItem: Menu[] = [
     icon: ClipboardTextIcon,
     children: [
       {
-        title: 'List Material',
+        title: 'List Categories',
         icon: ListCheckIcon,
-        to: '/main/inventory/list'
+        to: '/main/categories/list'
       },
       {
-        title: 'Add Material',
-        icon: UserPlusIcon,
-        to: '/main/inventory/add'
+        title: 'List Materials',
+        icon: PackageIcon,           
+        to: '/main/materials/list'
       },
       {
         title: 'Inventory Reports',

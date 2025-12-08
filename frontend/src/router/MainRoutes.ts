@@ -26,6 +26,16 @@ const MainRoutes = {
       component: () => import('@/views/departments/DepartmentsView.vue')
     },
     {
+      name: 'Categories',            
+      path: 'categories/list',       
+      component: () => import('@/views/categories/CategoriesView.vue') 
+    },
+    {
+      name: 'Materials',
+      path: 'materials/list',
+      component: () => import('@/views/materials/MaterialsView.vue')
+    },
+    {
       name: 'Error 404',
       path: 'error',
       component: () => import('@/views/pages/maintenance/error/Error404Page.vue')
