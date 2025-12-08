@@ -414,17 +414,26 @@ const isLastAdmin = (user: User) => {
     users.value.filter(u => u.role?.name.toLowerCase() === 'admin').length === 1;
 };
 
-const headers = [
+type UserTableHeader = {
+  readonly title: string;
+  readonly key: string;
+  readonly sortable?: boolean;
+  readonly width?: number | string;
+  readonly align?: "start" | "center" | "end";
+};
+
+const headers: readonly UserTableHeader[] = [
   { title: "Avatar", key: "image_profile", sortable: false, width: 100, align: "center" },
-  { title: "Name", key: "name" },
-  { title: "Email", key: "email" },
-  { title: "Phone", key: "phone_number" },
-  { title: "Address", key: "address", sortable: false },
-  { title: "Role", key: "role", sortable: false },
-  { title: "Department", key: "department", sortable: false },
-  { title: "Joined", key: "created_at" },
+  { title: "Name", key: "name", align: "start" },
+  { title: "Email", key: "email", align: "start" },
+  { title: "Phone", key: "phone_number", align: "start" },
+  { title: "Address", key: "address", sortable: false, align: "start" },
+  { title: "Role", key: "role", sortable: false, align: "center" },
+  { title: "Department", key: "department", sortable: false, align: "center" },
+  { title: "Joined", key: "created_at", align: "end" },
   { title: "Actions", key: "actions", sortable: false, align: "center" },
 ];
+
 
 onMounted(async () => {
   try {

@@ -245,12 +245,19 @@ const nameRules = [
   (v: string) => (v && v.length >= 2) || "Minimum 2 characters"
 ];
 
-// Full headers
-const baseHeaders = [
-  { title: "Department", key: "name", width: 220 },
-  { title: "Description", key: "description" },
-  { title: "Created", key: "created_at", width: 150 },
-  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 }
+type TableHeader = {
+  readonly title: string;
+  readonly key: string;
+  readonly sortable?: boolean;
+  readonly width?: number | string;
+  readonly align?: "start" | "center" | "end";
+};
+
+const baseHeaders: readonly TableHeader[] = [
+  { title: "Department", key: "name", width: 220, align: "start" },
+  { title: "Description", key: "description", align: "start" },
+  { title: "Created", key: "created_at", width: 150, align: "end" },
+  { title: "Actions", key: "actions", sortable: false, align: "center", width: 100 },
 ];
 
 // Responsive control using Vuetify breakpoints
