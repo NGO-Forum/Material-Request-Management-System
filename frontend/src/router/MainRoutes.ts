@@ -41,6 +41,11 @@ const MainRoutes = {
       component: () => import('@/views/profile/ProfileView.vue')
     },
     {
+      name: 'Inventory Reports',
+      path: 'inventory/reports',
+      component: () => import('@/views/inventory/InventoryReportsView.vue')
+    },
+    {
       name: 'Error 404',
       path: 'error',
       component: () => import('@/views/pages/maintenance/error/Error404Page.vue')
