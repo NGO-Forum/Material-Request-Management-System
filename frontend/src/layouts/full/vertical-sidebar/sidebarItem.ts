@@ -69,19 +69,9 @@ const sidebarItem: Menu[] = [
     icon: FileTextIcon,
     children: [
       {
-        title: 'Create Request',
-        icon: ClipboardTextIcon,
-        to: '/main/requests/create'
-      },
-      {
         title: 'Request List',
         icon: ListCheckIcon,
         to: '/main/requests/list'
-      },
-      {
-        title: 'Request Approval',
-        icon: ShieldIcon,
-        to: '/main/requests/approval'
       },
       {
         title: 'Request Tracking',
