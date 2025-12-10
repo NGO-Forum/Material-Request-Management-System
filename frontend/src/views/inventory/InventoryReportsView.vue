@@ -19,10 +19,11 @@
         <!-- Summary Cards -->
         <v-row class="mb-8">
           <v-col cols="12" sm="6" md="3" v-for="card in summaryCards" :key="card.title">
-            <v-card elevation="6" class="pa-6 text-center" :class="card.bg">
-              <v-icon size="48" color="white" class="mb-3">{{ card.icon }}</v-icon>
-              <div class="text-h4 font-weight-bold text-white">{{ card.value }}</div>
-              <div class="text-caption text-white-opacity-90">{{ card.title }}</div>
+            <v-card elevation="8" class="pa-6 summary-card bubble-shape">
+              <div class="mt-4">
+                <h2 class="text-h4 font-weight-bold">{{ card.value }}</h2>
+                <p class="text-subtitle-2 text-medium-emphasis">{{ card.title }}</p>
+              </div>
             </v-card>
           </v-col>
         </v-row>
@@ -30,21 +31,22 @@
         <!-- Charts Row -->
         <v-row class="mb-8">
           <v-col cols="12" md="6">
-            <v-card elevation="4" class="pa-4 h-100 bubble-shape-sm bubble-primary">
+            <v-card elevation="6" class="pa-4 h-100 bubble-shape">
               <v-card-title class="text-h6 font-weight-bold">Materials by Category</v-card-title>
-              <apexchart type="pie" height="320" :options="categoryChart.options" :series="categoryChart.series"/>
+              <apexchart type="pie" height="320" :options="categoryChart.options" :series="categoryChart.series" />
             </v-card>
           </v-col>
+
           <v-col cols="12" md="6">
-            <v-card elevation="4" class="pa-4 h-100 bubble-shape-sm bubble-success">
+            <v-card elevation="6" class="pa-4 h-100 bubble-shape">
               <v-card-title class="text-h6 font-weight-bold">Stock Status Distribution</v-card-title>
-              <apexchart type="bar" height="320" :options="stockStatusChart.options" :series="stockStatusChart.series"/>
+              <apexchart type="bar" height="320" :options="stockStatusChart.options" :series="stockStatusChart.series" />
             </v-card>
           </v-col>
         </v-row>
 
         <!-- Materials Table -->
-        <v-card elevation="4" class="rounded-lg">
+        <v-card elevation="6" class="rounded-lg bubble-shape">
           <v-card-title class="pa-4 d-flex align-center justify-space-between">
             <v-text-field
               v-model="search"
@@ -58,7 +60,7 @@
               class="w-75"
             />
             <v-btn color="primary" @click="exportToCSV" :loading="exporting">
-              <DownloadIcon class="mr-2" :size="20"/> Export CSV
+              <DownloadIcon class="mr-2" :size="20" /> Export CSV
             </v-btn>
           </v-card-title>
 
@@ -70,12 +72,12 @@
               :loading="loading"
               loading-text="Loading inventory..."
               items-per-page="10"
-              class="elevation-1"
+              class="elevation-1 data-table-ui"
               density="comfortable"
             >
               <template #item.image="{ item }">
                 <v-avatar size="48" class="my-2">
-                  <v-img :src="item.image || 'https://via.placeholder.com/80?text=No+Img'" cover class="rounded"/>
+                  <v-img :src="item.image || 'https://via.placeholder.com/80?text=No+Img'" cover class="rounded" />
                 </v-avatar>
               </template>
 
@@ -155,10 +157,10 @@ const stats = computed(() => {
 });
 
 const summaryCards = computed(() => [
-  { title: 'Total Materials', value: stats.value.total, icon: 'mdi-package-variant', bg: 'bg-primary' },
-  { title: 'In Stock', value: stats.value.inStock, icon: 'mdi-check-circle', bg: 'bg-success' },
-  { title: 'Low Stock (≤5)', value: stats.value.lowStock, icon: 'mdi-alert', bg: 'bg-warning' },
-  { title: 'Out of Stock', value: stats.value.outOfStock, icon: 'mdi-close-circle', bg: 'bg-error' }
+  { title: 'Total Materials', value: stats.value.total, icon: 'mdi-package-variant' },
+  { title: 'In Stock', value: stats.value.inStock, icon: 'mdi-check-circle' },
+  { title: 'Low Stock (≤5)', value: stats.value.lowStock, icon: 'mdi-alert' },
+  { title: 'Out of Stock', value: stats.value.outOfStock, icon: 'mdi-close-circle' }
 ]);
 
 const categoryChart = computed(() => {
@@ -173,7 +175,6 @@ const categoryChart = computed(() => {
       chart: { type: 'pie' },
       labels: Object.keys(categories),
       legend: { position: 'bottom' },
-      colors: ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#689f38', '#5d4037'],
       dataLabels: { enabled: true },
       tooltip: { y: { formatter: (val: number) => `${val} items` } }
     }
@@ -185,9 +186,8 @@ const stockStatusChart = computed(() => ({
   options: {
     chart: { type: 'bar', toolbar: { show: false } },
     plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
-    colors: ['#4caf50', '#ff9800', '#f44336'],
     xaxis: { categories: ['In Stock', 'Low Stock (≤5)', 'Out of Stock'] },
-    dataLabels: { enabled: true, style: { fontSize: '14px', fontWeight: 'bold' } },
+    dataLabels: { enabled: true },
     tooltip: { y: { formatter: (val: number) => `${val} materials` } }
   }
 }));
@@ -222,7 +222,9 @@ const exportToCSV = () => {
       m.qty_remaining,
       m.qty_remaining === 0 ? 'Out of Stock' : m.qty_remaining <= 5 ? 'Low Stock' : 'Available'
     ])
-  ].map(row => row.join(',')).join('\n');
+  ]
+    .map(row => row.join(','))
+    .join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -237,12 +239,13 @@ const exportToCSV = () => {
 </script>
 
 <style scoped>
-.h-100 { height: 100%; }
-.bg-primary { background: linear-gradient(135deg, #1976d2, #42a5f5); }
-.bg-success { background: linear-gradient(135deg, #388e3c, #66bb6a); }
-.bg-warning { background: linear-gradient(135deg, #f57c00, #ffb74d); }
-.bg-error { background: linear-gradient(135deg, #d32f2f, #ef5350); }
-.bubble-shape-sm { border-radius: 20px; }
-.bubble-primary { background: linear-gradient(135deg, #42a5f5, #1976d2); }
-.bubble-success { background: linear-gradient(135deg, #66bb6a, #388e3c); }
+.bubble-shape {
+  border-radius: 20px;
+}
+.icon-btn {
+  background: rgba(255, 255, 255, 0.12);
+}
+.data-table-ui {
+  border-radius: 16px;
+}
 </style>
