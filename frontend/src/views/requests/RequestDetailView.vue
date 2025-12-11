@@ -21,7 +21,7 @@
       <!-- Left Column -->
       <v-col cols="12" lg="8">
         <!-- Header Card -->
-        <v-card elevation="16" class="mb-8 bubble-shape overflow-hidden">
+        <v-card elevation="16" class="mb-8 rounded-xl overflow-hidden">
           <div class="bg-primary pa-8 text-white">
             <h1 class="text-h4 font-weight-bold d-flex align-center gap-4">
               <v-icon size="48">mdi-file-document-outline</v-icon>
@@ -69,6 +69,18 @@
                       {{ request.purpose || 'Not specified' }}
                     </v-list-item-subtitle>
                   </v-list-item>
+
+                  <v-list-item v-if="request.receipt_date">
+                    <v-list-item-title class="font-weight-medium text-grey-darken-2">
+                      Required By
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                      <v-chip color="orange-darken-1" variant="flat">
+                        <v-icon start>mdi-calendar-clock</v-icon>
+                        {{ formatDateOnly(request.receipt_date) }}
+                      </v-chip>
+                    </v-list-item-subtitle>
+                  </v-list-item>
                 </v-list>
               </v-col>
 
@@ -94,7 +106,7 @@
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Issued On
                     </v-list-item-title>
-                    <v-list-item-subtitle>
+                    <v-list-item-subtitle class="font-weight-bold">
                       {{ formatFullDate(issueRecord.issued_date) }}
                     </v-list-item-subtitle>
                   </v-list-item>
@@ -103,7 +115,7 @@
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Returned On
                     </v-list-item-title>
-                    <v-list-item-subtitle>
+                    <v-list-item-subtitle class="font-weight-bold">
                       {{ formatFullDate(returnRecord.created_at) }}
                     </v-list-item-subtitle>
                   </v-list-item>
@@ -114,60 +126,67 @@
             <!-- Action Buttons -->
             <v-divider class="my-10" />
             <div class="d-flex flex-wrap gap-4">
+              <!-- Approve -->
               <v-btn
                 v-if="request.status === 'pending'"
                 color="success"
                 size="large"
-                @click="takeAction('approved')"
                 prepend-icon="mdi-check-bold"
                 :loading="processing"
                 elevation="6"
+                @click="openConfirmDialog('approved', 'Approve Request', 'This request will be approved.', 'success', CheckIcon)"
               >
                 Approve
               </v-btn>
 
+              <!-- Reject -->
               <v-btn
                 v-if="request.status === 'pending'"
                 color="error"
                 size="large"
-                @click="takeAction('rejected')"
                 prepend-icon="mdi-close-thick"
                 :loading="processing"
                 elevation="6"
+                @click="openConfirmDialog('rejected', 'Reject Request', 'This request will be rejected.', 'error', XIcon)"
               >
                 Reject
               </v-btn>
 
+              <!-- Cancel -->
               <v-btn
                 v-if="['pending', 'approved'].includes(request.status)"
                 color="grey-darken-2"
                 size="large"
-                @click="takeAction('cancelled')"
                 prepend-icon="mdi-cancel"
                 :loading="processing"
                 elevation="6"
+                @click="openConfirmDialog('cancelled', 'Cancel Request', 'This request will be cancelled.', 'warning', AlertTriangleIcon)"
               >
                 Cancel
               </v-btn>
 
+              <!-- Issue Material -->
               <v-btn
                 v-if="request.status === 'approved' && !issueRecord"
                 color="info"
                 size="large"
-                @click="issueDialog = true"
                 prepend-icon="mdi-package-down"
                 elevation="6"
+                :loading="processing"
+                @click="issueDialog = true"
               >
                 Issue Material
               </v-btn>
 
+              <!-- Return Material -->
               <v-btn
                 v-if="request.status === 'issued' && !returnRecord"
                 color="purple"
                 size="large"
-                @click="returnDialog = true"
                 prepend-icon="mdi-package-up"
                 elevation="6"
+                :loading="processing"
+                @click="returnDialog = true"
               >
                 Return Material
               </v-btn>
@@ -175,8 +194,8 @@
           </v-card-text>
         </v-card>
 
-        <!-- Timeline -->
-        <v-card elevation="12" class="bubble-shape">
+        <!-- Activity Timeline -->
+        <v-card elevation="12" class="rounded-xl">
           <v-card-title class="text-h6 font-weight-bold pa-6 bg-grey-lighten-4">
             Activity Timeline
           </v-card-title>
@@ -206,21 +225,21 @@
 
       <!-- Right Column -->
       <v-col cols="12" lg="4">
-        <v-card v-if="issueRecord" elevation="12" class="mb-6 bubble-shape">
+        <v-card v-if="issueRecord" elevation="12" class="mb-6 rounded-xl">
           <v-card-title class="bg-info text-white pa-6">
-            <v-icon class="mr-3" size="28">mdi-package-down</v-icon>
             Material Issued
           </v-card-title>
           <v-card-text class="pt-8">
             <p><strong>Issued by:</strong> {{ issueRecord.issuedBy?.name || '—' }}</p>
             <p><strong>Date:</strong> {{ formatFullDate(issueRecord.issued_date) }}</p>
-            <p><strong>Expected Return:</strong> {{ issueRecord.expected_return_date ? formatFullDate(issueRecord.expected_return_date) : 'Not set' }}</p>
+            <p><strong>Expected Return:</strong>
+              {{ issueRecord.expected_return_date ? formatFullDate(issueRecord.expected_return_date) : 'Not set' }}
+            </p>
           </v-card-text>
         </v-card>
 
-        <v-card v-if="returnRecord" elevation="12" class="bubble-shape">
+        <v-card v-if="returnRecord" elevation="12" class="rounded-xl">
           <v-card-title class="bg-purple text-white pa-6">
-            <v-icon class="mr-3" size="28">mdi-package-up</v-icon>
             Material Returned
           </v-card-title>
           <v-card-text class="pt-8">
@@ -236,87 +255,148 @@
       </v-col>
     </v-row>
 
-    <!-- Issue Dialog -->
+    <!-- Confirmation Dialog (Approve/Reject/Cancel) -->
+    <v-dialog v-model="confirmDialog" max-width="480" persistent>
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center gap-3" :class="confirmColor">
+          <component :is="confirmIcon" :size="28" />
+          {{ confirmTitle }}
+        </v-card-title>
+        <v-card-text class="pt-4 text-body-1">
+          {{ confirmMessage }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="confirmDialog = false">Cancel</v-btn>
+          <v-btn :color="confirmColor" @click="executeAction" :loading="processing">
+            Confirm
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Issue Material Dialog -->
     <v-dialog v-model="issueDialog" max-width="600">
       <v-card>
         <v-card-title class="text-h6 bg-info text-white">
-          <v-icon class="mr-3">mdi-package-down</v-icon>
           Issue Material
         </v-card-title>
         <v-card-text class="pt-8">
           <v-row>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="issueForm.issued_date" label="Issue Date" type="date" required />
+              <v-text-field
+                v-model="issueForm.issued_date"
+                label="Issue Date *"
+                type="date"
+                :max="today"
+                required
+              />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="issueForm.expected_return_date" label="Expected Return" type="date" />
+              <v-text-field
+                v-model="issueForm.expected_return_date"
+                label="Expected Return Date"
+                type="date"
+                :min="issueForm.issued_date"
+              />
             </v-col>
           </v-row>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="issueDialog = false">Cancel</v-btn>
-          <v-btn color="info" :loading="processing" @click="issueMaterial">Confirm</v-btn>
+          <v-btn color="info" :loading="processing" @click="issueMaterial">
+            Confirm Issue
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Return Dialog -->
+    <!-- Return Material Dialog -->
     <v-dialog v-model="returnDialog" max-width="600">
       <v-card>
         <v-card-title class="text-h6 bg-purple text-white">
-          <v-icon class="mr-3">mdi-package-up</v-icon>
           Return Material
         </v-card-title>
         <v-card-text class="pt-8">
           <v-select
             v-model="returnForm.it_condition_status"
             :items="['Good', 'Damaged', 'Lost']"
-            label="Condition"
+            label="Condition *"
+            required
           />
-          <v-textarea v-model="returnForm.it_remarks" label="Remarks" rows="3" />
+          <v-textarea
+            v-model="returnForm.it_remarks"
+            label="Remarks (Optional)"
+            rows="3"
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="returnDialog = false">Cancel</v-btn>
-          <v-btn color="purple" :loading="processing" @click="returnMaterial">Confirm</v-btn>
+          <v-btn color="purple" :loading="processing" @click="returnMaterial">
+            Confirm Return
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Snackbar -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000" location="top">
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      timeout="5000"
+      location="top"
+    >
       {{ snackbar.message }}
     </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+
+import {
+  CircleCheckIcon,
+  CircleXIcon,
+  CheckIcon,
+  XIcon,
+  AlertTriangleIcon
+} from 'vue-tabler-icons'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const request = ref<any>(null)
-const actions = ref<any[]>([])
 const issueRecord = ref<any>(null)
 const returnRecord = ref<any>(null)
-const issueDialog = ref(false)
-const returnDialog = ref(false)
+const timeline = ref<any[]>([])
+
 const loading = ref(true)
 const processing = ref(false)
 
+const issueDialog = ref(false)
+const returnDialog = ref(false)
+const confirmDialog = ref(false)
+const confirmAction = ref<'approved' | 'rejected' | 'cancelled' | null>(null)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const confirmColor = ref('primary')
+const confirmIcon = ref<Component>(AlertTriangleIcon)
+
+const today = new Date().toISOString().substr(0, 10)
+
 const issueForm = ref({
-  issued_date: new Date().toISOString().substr(0, 10),
+  issued_date: today,
   expected_return_date: ''
 })
 
 const returnForm = ref({
-  it_condition_status: 'Good' as const,
+  it_condition_status: 'Good' as 'Good' | 'Damaged' | 'Lost',
   it_remarks: ''
 })
 
@@ -342,6 +422,14 @@ const formatFullDate = (date: string | null) => {
   })
 }
 
+const formatDateOnly = (date: string) => {
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
 const getStatusColor = (status: string) => {
   const map: Record<string, string> = {
     pending: 'orange',
@@ -360,7 +448,8 @@ const getTimelineColor = (type: string) => {
     approved: 'success',
     rejected: 'error',
     issued: 'info',
-    returned: 'purple'
+    returned: 'purple',
+    cancelled: 'grey-darken-2'
   }
   return map[type] || 'grey'
 }
@@ -371,131 +460,144 @@ const getTimelineIcon = (type: string) => {
     approved: 'mdi-check-bold',
     rejected: 'mdi-close-thick',
     issued: 'mdi-package-down',
-    returned: 'mdi-package-up'
+    returned: 'mdi-package-up',
+    cancelled: 'mdi-cancel'
   }
   return icons[type] || 'mdi-circle-outline'
 }
 
-const timeline = ref<any[]>([])
+const openConfirmDialog = (
+  action: 'approved' | 'rejected' | 'cancelled',
+  title: string,
+  message: string,
+  color: string,
+  icon: Component
+) => {
+  confirmAction.value = action
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmColor.value = color
+  confirmIcon.value = icon
+  confirmDialog.value = true
+}
+
+const executeAction = async () => {
+  if (!confirmAction.value || !request.value?.id) return
+  processing.value = true
+  try {
+    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
+      status: confirmAction.value
+    })
+    showMessage(`Request ${confirmAction.value} successfully!`, 'success')
+    confirmDialog.value = false
+    await loadData()
+  } catch (err: any) {
+    showMessage(err.response?.data?.message || 'Action failed', 'error')
+  } finally {
+    processing.value = false
+    confirmAction.value = null
+  }
+}
+
+// FIXED: Issue Material - Now works perfectly
+const issueMaterial = async () => {
+  if (!request.value?.id) return
+  processing.value = true
+  try {
+    // 1. Create issue record
+    await axiosClient.post('/material-issue-records', {
+      request_id: request.value.id,
+      issued_by: authStore.user?.id,
+      issued_date: issueForm.value.issued_date,
+      expected_return_date: issueForm.value.expected_return_date || null
+    })
+
+    // 2. Update status to issued
+    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
+      status: 'issued'
+    })
+
+    showMessage('Material issued successfully!', 'success')
+    issueDialog.value = false
+    issueForm.value = { issued_date: today, expected_return_date: '' }
+    await loadData()
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Failed to issue material'
+    showMessage(msg, 'error')
+  } finally {
+    processing.value = false
+  }
+}
+
+// FIXED: Return Material - Now works perfectly
+const returnMaterial = async () => {
+  if (!request.value?.id) return
+  processing.value = true
+  try {
+    // 1. Create return record
+    await axiosClient.post('/material-returns', {
+      request_id: request.value.id,
+      returned_by: authStore.user?.id,
+      it_inspected_by: authStore.user?.id,
+      it_condition_status: returnForm.value.it_condition_status,
+      it_remarks: returnForm.value.it_remarks,
+      return_date: today
+    })
+
+    // 2. Update status to returned
+    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
+      status: 'returned'
+    })
+
+    showMessage('Material returned successfully!', 'success')
+    returnDialog.value = false
+    returnForm.value = { it_condition_status: 'Good', it_remarks: '' }
+    await loadData()
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Failed to record return'
+    showMessage(msg, 'error')
+  } finally {
+    processing.value = false
+  }
+}
 
 const loadData = async () => {
   loading.value = true
   try {
     const id = Number(route.params.id)
-
-    const [reqRes, actRes, issueRes, returnRes] = await Promise.all([
+    const [reqRes, actionsRes, issuesRes, returnsRes] = await Promise.all([
       axiosClient.get(`/material-requests/${id}`),
       axiosClient.get('/material-request-actions'),
       axiosClient.get('/material-issue-records'),
       axiosClient.get('/material-returns')
     ])
 
-    const reqData = reqRes.data.data || reqRes.data
-    if (!reqData) throw new Error('Not found')
+    const req = reqRes.data.data || reqRes.data
+    if (!req) throw new Error('Request not found')
+    request.value = req
 
-    request.value = reqData
-
-    const acts = actRes.data.data || actRes.data || []
-    const issues = issueRes.data.data || issueRes.data || []
-    const returns = returnRes.data.data || returnRes.data || []
-
-    actions.value = acts.filter((a: any) => a.request_id === id)
-    issueRecord.value = issues.find((i: any) => i.request_id === id) || null
-    returnRecord.value = returns.find((r: any) => r.request_id === id) || null
+    const actions = (actionsRes.data.data || actionsRes.data || []).filter((a: any) => a.request_id === id)
+    issueRecord.value = (issuesRes.data.data || issuesRes.data || []).find((i: any) => i.request_id === id) || null
+    returnRecord.value = (returnsRes.data.data || returnsRes.data || []).find((r: any) => r.request_id === id) || null
 
     timeline.value = [
-      { type: 'created', title: 'Request Created', by: request.value.requester?.name || 'Unknown', date: request.value.created_at },
-      ...actions.value.map((a: any) => ({
+      { type: 'created', title: 'Request Created', by: req.requester?.name, date: req.created_at },
+      ...actions.map((a: any) => ({
         type: a.action_type,
         title: a.action_type.charAt(0).toUpperCase() + a.action_type.slice(1),
         by: a.actor?.name || 'System',
         date: a.created_at,
         remarks: a.remarks
       })),
-      issueRecord.value && { type: 'issued', title: 'Material Issued', by: issueRecord.value.issuedBy?.name || 'Unknown', date: issueRecord.value.issued_date },
-      returnRecord.value && { type: 'returned', title: 'Material Returned', by: returnRecord.value.returnedBy?.name || 'Unknown', date: returnRecord.value.created_at, remarks: returnRecord.value.it_remarks }
+      issueRecord.value && { type: 'issued', title: 'Material Issued', by: issueRecord.value.issuedBy?.name, date: issueRecord.value.issued_date },
+      returnRecord.value && { type: 'returned', title: 'Material Returned', by: returnRecord.value.returnedBy?.name, date: returnRecord.value.created_at, remarks: returnRecord.value.it_remarks }
     ].filter(Boolean)
 
   } catch (err) {
-    showMessage('Failed to load data', 'error')
-    router.push('/main/requests/list')
+    showMessage('Failed to load request', 'error')
+    router.push('/main/requests')
   } finally {
     loading.value = false
-  }
-}
-
-const takeAction = async (status: 'approved' | 'rejected' | 'cancelled') => {
-  if (!confirm(`Confirm ${status} this request?`)) return
-
-  processing.value = true
-  try {
-    await axiosClient.put(`/material-requests/${request.value.id}`, { status })
-    await axiosClient.post('/material-request-actions', {
-      request_id: request.value.id,
-      action_by: authStore.currentUser?.id || 1,
-      action_type: status
-    })
-    showMessage(`Request ${status} successfully!`, 'success')
-    loadData()
-  } catch {
-    showMessage('Action failed', 'error')
-  } finally {
-    processing.value = false
-  }
-}
-
-const issueMaterial = async () => {
-  processing.value = true
-  try {
-    await Promise.all([
-      axiosClient.post('/material-issue-records', {
-        request_id: request.value.id,
-        issued_by: authStore.currentUser?.id || 1,
-        ...issueForm.value
-      }),
-      axiosClient.put(`/material-requests/${request.value.id}`, { status: 'issued' }),
-      axiosClient.post('/material-stock-movements', {
-        material_id: request.value.material_id,
-        request_id: request.value.id,
-        movement_type: 'issue',
-        quantity: request.value.quantity
-      })
-    ])
-    showMessage('Material issued!', 'success')
-    issueDialog.value = false
-    loadData()
-  } catch {
-    showMessage('Issue failed', 'error')
-  } finally {
-    processing.value = false
-  }
-}
-
-const returnMaterial = async () => {
-  processing.value = true
-  try {
-    await Promise.all([
-      axiosClient.post('/material-returns', {
-        request_id: request.value.id,
-        returned_by: authStore.currentUser?.id || 1,
-        it_inspected_by: authStore.currentUser?.id || 1,
-        ...returnForm.value
-      }),
-      axiosClient.put(`/material-requests/${request.value.id}`, { status: 'returned' }),
-      axiosClient.post('/material-stock-movements', {
-        material_id: request.value.material_id,
-        request_id: request.value.id,
-        movement_type: 'return',
-        quantity: request.value.quantity
-      })
-    ])
-    showMessage('Material returned!', 'success')
-    returnDialog.value = false
-    loadData()
-  } catch {
-    showMessage('Return failed', 'error')
-  } finally {
-    processing.value = false
   }
 }
 
@@ -503,7 +605,7 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.bubble-shape {
-  border-radius: 28px !important;
+.rounded-xl {
+  border-radius: 20px !important;
 }
 </style>

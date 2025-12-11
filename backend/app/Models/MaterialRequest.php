@@ -10,15 +10,23 @@ class MaterialRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'requester_id',
-        'manager_id',
-        'admin_hr_id',
-        'it_staff_id',
-        'material_id',
-        'quantity',
-        'purpose',
-        'status',
-    ];
+    'requester_id',
+    'material_id',
+    'quantity',
+    'receipt_date',
+    'purpose',
+    'status',
+    'manager_id',
+    'admin_hr_id',
+    'it_staff_id',
+    'remarks'
+];
+
+protected $casts = [
+    'receipt_date' => 'date:Y-m-d',
+    'created_at'   => 'datetime',
+    'updated_at'   => 'datetime',
+];
 
     // Relationships
     public function requester()

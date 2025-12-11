@@ -20,24 +20,23 @@ class MaterialReturnController extends Controller
         return response()->json($data, 200);
     }
 
+    // MaterialReturnController.php
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'request_id' => 'required|exists:material_requests,id',
+        $request->validate([
+            'request_id' => 'required|exists:material_requests,id|unique:material_returns,request_id',
             'returned_by' => 'required|exists:users,id',
-            'return_date' => 'nullable|date',
-            'it_inspected_by' => 'nullable|exists:users,id',
-            'it_condition_status' => 'nullable|string',
+            'it_inspected_by' => 'required|exists:users,id',
+            'it_condition_status' => 'required|in:Good,Damaged,Lost',
             'it_remarks' => 'nullable|string',
-            'final_confirmed_by' => 'nullable|exists:users,id',
-            'admin_remarks' => 'nullable|string',
+            'return_date' => 'required|date',
         ]);
 
-        $model = MaterialReturn::create($validated);
+        $record = MaterialReturn::create($request->all());
 
         return response()->json([
-            'message' => 'Return record created successfully',
-            'data' => $model
+            'message' => 'Material returned successfully',
+            'data' => $record->load(['returnedBy', 'itInspector'])
         ], 201);
     }
 

@@ -19,27 +19,6 @@
         Export CSV
       </v-btn>
     </div>
-
-    <!-- Summary Cards -->
-    <v-row class="mb-8">
-      <v-col v-for="card in summaryCards" :key="card.title" cols="12" sm="6" md="3">
-        <v-card
-          elevation="12"
-          class="pa-6 summary-card bubble-shape text-white"
-          :color="card.color"
-          rounded="xl"
-        >
-          <div class="d-flex align-center justify-space-between">
-            <div>
-              <div class="text-h3 font-weight-bold">{{ card.value }}</div>
-              <div class="text-h6 mt-2 opacity-90">{{ card.title }}</div>
-            </div>
-            <v-icon size="56">{{ card.icon }}</v-icon>
-          </div>
-        </v-card>
-      </v-col>
-    </v-row>
-
     <!-- Charts -->
     <v-row class="mb-8">
       <v-col cols="12" md="6">
