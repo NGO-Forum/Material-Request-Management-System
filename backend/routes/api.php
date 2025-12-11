@@ -58,7 +58,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('material-requests', MaterialRequestController::class);
     Route::patch('material-requests/{id}/status', [MaterialRequestController::class, 'updateStatus']);
     Route::post('material-requests/{id}/issue', [MaterialRequestController::class, 'issue']);
-    Route::post('material-requests/{id}/return', [MaterialRequestController::class, 'returnMaterial']);
+    Route::post('material-requests/{id}/return', [MaterialRequestController::class, 'returnMaterial']); 
     Route::apiResource('material-request-actions', MaterialRequestActionController::class);
     Route::apiResource('material-issue-records', MaterialIssueRecordController::class);
     Route::apiResource('material-returns', MaterialReturnController::class);

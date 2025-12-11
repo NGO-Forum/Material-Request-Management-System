@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\MaterialRequest;
 use App\Models\Material;
 use App\Models\MaterialRequestAction;
+use App\Models\MaterialIssueRecord;
+use App\Models\MaterialReturn;
+use App\Models\MaterialStockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class MaterialRequestController extends Controller
@@ -19,15 +23,16 @@ class MaterialRequestController extends Controller
 
     public function index()
     {
-        $requests = MaterialRequest::with(['requester:id,name,email', 'material:id,name,model,category_id', 'material.category:id,name'])
+        $requests = MaterialRequest::with([
+                'requester:id,name,email',
+                'material:id,name,model,category_id',
+                'material.category:id,name'
+            ])
             ->select('id', 'requester_id', 'material_id', 'quantity', 'receipt_date', 'purpose', 'status', 'created_at')
             ->latest()
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data'    => $requests
-        ], 200);
+        return response()->json(['success' => true, 'data' => $requests], 200);
     }
 
     public function store(Request $request)
@@ -37,13 +42,6 @@ class MaterialRequestController extends Controller
             'quantity'      => 'required|integer|min:1|max:999',
             'receipt_date'  => 'required|date|after_or_equal:today',
             'purpose'       => 'nullable|string|max:1000',
-        ], [
-            'material_id.required'  => 'Please select a material.',
-            'material_id.exists'    => 'The selected material does not exist.',
-            'quantity.required'     => 'Quantity is required.',
-            'quantity.min'          => 'Quantity must be at least 1.',
-            'receipt_date.required' => 'Please select when you need the material (Required By date).',
-            'receipt_date.after_or_equal' => 'Receipt date cannot be in the past.',
         ]);
 
         $material = Material::findOrFail($validated['material_id']);
@@ -66,12 +64,10 @@ class MaterialRequestController extends Controller
             'status'        => 'pending',
         ]);
 
-        $materialRequest->load(['requester:id,name,email', 'material:id,name,model']);
-
         return response()->json([
             'success' => true,
             'message' => 'Material request submitted successfully!',
-            'data'    => $materialRequest
+            'data'    => $materialRequest->load(['requester:id,name,email', 'material:id,name,model'])
         ], 201);
     }
 
@@ -85,71 +81,9 @@ class MaterialRequestController extends Controller
             ])
             ->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data'    => $request
-        ], 200);
+        return response()->json(['success' => true, 'data' => $request], 200);
     }
 
-    public function update(Request $request, $id)
-    {
-        $materialRequest = MaterialRequest::findOrFail($id);
-
-        if ($materialRequest->status !== 'pending' || Auth::id() !== $materialRequest->requester_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You can only edit your own pending requests.'
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'material_id'   => 'required|integer|exists:materials,id',
-            'quantity'      => 'required|integer|min:1|max:999',
-            'receipt_date'  => 'required|date|after_or_equal:today',
-            'purpose'       => 'nullable|string|max:1000',
-        ]);
-
-        $material = Material::findOrFail($validated['material_id']);
-        if ($material->qty_remaining < $validated['quantity']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Not enough stock.',
-                'available' => $material->qty_remaining
-            ], 422);
-        }
-
-        $materialRequest->update($validated);
-        $materialRequest->load(['requester:id,name,email', 'material:id,name,model']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Request updated successfully',
-            'data' => $materialRequest
-        ]);
-    }
-
-    public function destroy($id)
-    {
-        $request = MaterialRequest::findOrFail($id);
-
-        if ($request->status !== 'pending' || Auth::id() !== $request->requester_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You can only delete your own pending requests.'
-            ], 403);
-        }
-
-        $request->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Request deleted successfully.'
-        ], 200);
-    }
-
-    /**
-     * NEW METHOD: Approve / Reject / Cancel Request
-     */
     public function updateStatus(Request $request, $id)
     {
         $materialRequest = MaterialRequest::findOrFail($id);
@@ -159,30 +93,151 @@ class MaterialRequestController extends Controller
             'remarks' => 'nullable|string|max:1000'
         ]);
 
-        $newStatus = $validated['status'];
-
-        // Optional: Only allow admin/manager to approve/reject
-        // if (!Auth::user()->hasRole(['admin', 'manager'])) {
-        //     return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        // }
-
-        $materialRequest->status = $newStatus;
+        $materialRequest->status = $validated['status'];
         $materialRequest->save();
 
-        // Log the action
         MaterialRequestAction::create([
             'request_id'  => $materialRequest->id,
             'action_by'   => Auth::id(),
-            'action_type' => $newStatus,
+            'action_type' => $validated['status'],
             'remarks'     => $validated['remarks'] ?? null,
         ]);
 
-        $materialRequest->load(['requester:id,name,email', 'material:id,name,model']);
-
         return response()->json([
             'success' => true,
-            'message' => "Request has been {$newStatus} successfully!",
-            'data'    => $materialRequest
+            'message' => "Request has been {$validated['status']} successfully!",
+            'data'    => $materialRequest->load(['requester', 'material'])
         ], 200);
+    }
+
+    // NEW: ISSUE MATERIAL (Perfect & Safe)
+    public function issue(Request $request, $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $materialRequest = MaterialRequest::findOrFail($id);
+
+            if ($materialRequest->status !== 'approved') {
+                return response()->json(['success' => false, 'message' => 'Request must be approved first'], 400);
+            }
+
+            if (MaterialIssueRecord::where('request_id', $id)->exists()) {
+                return response()->json(['success' => false, 'message' => 'Material already issued'], 400);
+            }
+
+            $validated = $request->validate([
+                'issued_date' => 'required|date',
+                'expected_return_date' => 'nullable|date|after:issued_date',
+                'issued_by' => 'required|exists:users,id',
+            ]);
+
+            // Deduct stock
+            $material = $materialRequest->material;
+            if ($material->qty_remaining < $materialRequest->quantity) {
+                return response()->json(['success' => false, 'message' => 'Not enough stock to issue'], 400);
+            }
+
+            $material->decrement('qty_remaining', $materialRequest->quantity);
+
+            // Create issue record
+            $issue = MaterialIssueRecord::create([
+                'request_id' => $id,
+                'issued_by' => $validated['issued_by'],
+                'issued_date' => $validated['issued_date'],
+                'expected_return_date' => $validated['expected_return_date'],
+            ]);
+
+            // Update request status
+            $materialRequest->status = 'issued';
+            $materialRequest->save();
+
+            // Log action
+            MaterialRequestAction::create([
+                'request_id' => $id,
+                'action_by' => $validated['issued_by'],
+                'action_type' => 'issued',
+                'remarks' => 'Material physically issued'
+            ]);
+
+            // Stock movement
+            MaterialStockMovement::create([
+                'material_id' => $material->id,
+                'request_id' => $id,
+                'movement_type' => 'issue',
+                'quantity' => $materialRequest->quantity,
+                'remarks' => 'Issued via request #' . $id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material issued successfully!',
+                'data' => $issue->load('issuedBy')
+            ], 200);
+        });
+    }
+
+    // NEW: RETURN MATERIAL (Perfect & Safe)
+    public function returnMaterial(Request $request, $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $materialRequest = MaterialRequest::findOrFail($id);
+
+            if ($materialRequest->status !== 'issued') {
+                return response()->json(['success' => false, 'message' => 'Material must be issued first'], 400);
+            }
+
+            if (MaterialReturn::where('request_id', $id)->exists()) {
+                return response()->json(['success' => false, 'message' => 'Material already returned'], 400);
+            }
+
+            $validated = $request->validate([
+                'it_condition_status' => 'required|in:Good,Damaged,Lost',
+                'it_remarks' => 'nullable|string',
+                'returned_by' => 'required|exists:users,id',
+                'it_inspected_by' => 'required|exists:users,id',
+            ]);
+
+            $return = MaterialReturn::create([
+                'request_id' => $id,
+                'returned_by' => $validated['returned_by'],
+                'it_inspected_by' => $validated['it_inspected_by'],
+                'it_condition_status' => $validated['it_condition_status'],
+                'it_remarks' => $validated['it_remarks'],
+                'return_date' => now()->format('Y-m-d'),
+            ]);
+
+            // Return stock only if condition is Good
+            if ($validated['it_condition_status'] === 'Good') {
+                $materialRequest->material->increment('qty_remaining', $materialRequest->quantity);
+            }
+
+            // Update request status
+            $materialRequest->status = 'returned';
+            $materialRequest->save();
+
+            // Log action
+            MaterialRequestAction::create([
+                'request_id' => $id,
+                'action_by' => $validated['returned_by'],
+                'action_type' => 'returned',
+                'remarks' => $validated['it_remarks']
+            ]);
+
+            // Stock movement
+            if ($validated['it_condition_status'] === 'Good') {
+                MaterialStockMovement::create([
+                    'material_id' => $materialRequest->material_id,
+                    'request_id' => $id,
+                    'movement_type' => 'return',
+                    'quantity' => $materialRequest->quantity,
+                    'remarks' => 'Returned in good condition'
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material returned successfully!',
+                'data' => $return->load(['returnedBy', 'itInspector'])
+            ], 200);
+        });
     }
 }
