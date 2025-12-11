@@ -1,35 +1,28 @@
 // src/main.ts
-import { createApp } from 'vue';
-import { createPinia } from 'pinia';
-import App from './App.vue';
-import router from './router'; // ← Fixed: default import
-import vuetify from './plugins/vuetify';
-import '@/scss/style.scss';
-import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
-import VueApexCharts from 'vue3-apexcharts';
-import VueTablerIcons from 'vue-tabler-icons';
-import print from 'vue3-print-nb';
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import router from './router'
+import vuetify from './plugins/vuetify'
+import '@/scss/style.scss'
 
-// Remove fake backend if using real Laravel API
-// import { fakeBackend } from '@/utils/helpers/fake-backend';
+import VueTablerIcons from 'vue-tabler-icons'
+import VueApexCharts from 'vue3-apexcharts'
+import print from 'vue3-print-nb'
 
-import { useAuthStore } from '@/stores/auth'; // ← Import here
+import { useAuthStore } from '@/stores/auth'
 
-const app = createApp(App);
+const app = createApp(App)
 
-// Install plugins
-app.use(createPinia());        // ← Pinia must be installed FIRST
-app.use(router);
-app.use(vuetify);
-app.use(PerfectScrollbarPlugin);
-app.use(VueTablerIcons);
-app.use(VueApexCharts);
-app.use(print);
+app.use(createPinia())
+app.use(router)
+app.use(vuetify)
+app.use(VueTablerIcons)
+app.use(VueApexCharts)
+app.use(print)
 
-// fakeBackend(); // ← Remove this line if using real backend
+// CRITICAL: Initialize auth BEFORE mounting
+const authStore = useAuthStore()
+authStore.initializeAuth()
 
-// Now it's safe to use useAuthStore()
-const authStore = useAuthStore();
-authStore.initializeAuth(); // ← Initialize auth after Pinia
-
-app.mount('#app');
+app.mount('#app')

@@ -45,6 +45,27 @@ const MainRoutes = {
       path: 'inventory/reports',
       component: () => import('@/views/inventory/InventoryReportsView.vue')
     },
+    // Add these to your MainRoutes children array
+    {
+      name: 'Request List',
+      path: 'requests/list',
+      component: () => import('@/views/requests/RequestListView.vue')
+    },
+    {
+      name: 'Request Create',
+      path: 'requests/create',
+      component: () => import('@/views/requests/RequestCreateView.vue')
+    },
+    {
+      name: 'Request Detail',
+      path: 'requests/:id',
+      component: () => import('@/views/requests/RequestDetailView.vue')
+    },
+    {
+      name: 'Request Tracking',
+      path: 'requests/tracking',
+      component: () => import('@/views/requests/RequestTrackingView.vue')
+    },
     {
       name: 'Error 404',
       path: 'error',

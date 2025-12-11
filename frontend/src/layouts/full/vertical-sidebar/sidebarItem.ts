@@ -10,6 +10,7 @@ import {
   BuildingIcon,
   AlertTriangleIcon,
   HelpIcon,
+  PlusIcon,
   PackageIcon,        
 } from 'vue-tabler-icons';
 
@@ -63,8 +64,8 @@ const sidebarItem: Menu[] = [
     ]
   },
 
-  // Material Request Management
-  {
+    // Material Request Management
+    {
     title: 'Material Request Management',
     icon: FileTextIcon,
     children: [
@@ -72,6 +73,11 @@ const sidebarItem: Menu[] = [
         title: 'Request List',
         icon: ListCheckIcon,
         to: '/main/requests/list'
+      },
+      {
+        title: 'Create Request',
+        icon: PlusIcon,
+        to: '/main/requests/create'
       },
       {
         title: 'Request Tracking',
@@ -103,7 +109,7 @@ const sidebarItem: Menu[] = [
       }
     ]
   },
-
+ 
   {
     title: 'Error 404',
     icon: AlertTriangleIcon,
