@@ -1,21 +1,23 @@
+// src/stores/authUser.ts
 import { defineStore } from 'pinia';
-
 import { fetchWrapper } from '@/utils/helpers/fetch-wrapper';
 
 const baseUrl = `${import.meta.env.VITE_API_URL}/users`;
 
 export const useUsersStore = defineStore({
-  id: 'Authuser',
+  id: 'users',
   state: () => ({
-    users: {}
+    users: {} as any,
   }),
   actions: {
     async getAll() {
       this.users = { loading: true };
-      fetchWrapper
-        .get(baseUrl)
-        .then((users) => (this.users = users))
-        .catch((error) => (this.users = { error }));
-    }
-  }
+      try {
+        const users = await fetchWrapper.get(baseUrl);
+        this.users = users;
+      } catch (error) {
+        this.users = { error };
+      }
+    },
+  },
 });
