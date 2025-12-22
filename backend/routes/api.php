@@ -17,50 +17,34 @@ use App\Http\Controllers\V1\MaterialRequests\MaterialIssueRecordController;
 use App\Http\Controllers\V1\MaterialRequests\MaterialReturnController;
 use App\Http\Controllers\V1\MaterialRequests\MaterialStockMovementController;
 
-/*
-|--------------------------------------------------------------------------
-| Public Routes (No Authentication Required)
-|--------------------------------------------------------------------------
-*/
-
 Route::prefix('v1')->group(function () {
-
-    // Auth
+    // Public routes
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
 
-    // Only roles & departments are public (you can lock later if needed)
     Route::apiResource('roles', RoleController::class);
     Route::apiResource('departments', DepartmentController::class);
 });
 
-
-/*
-|--------------------------------------------------------------------------
-| Protected Routes (Require Authentication)
-|--------------------------------------------------------------------------
-*/
-
 Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
-
-    // Auth info
+    // Auth
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
 
-    // User Management
+    // Users, Materials
     Route::apiResource('users', UserController::class);
-
-    // Materials
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('materials', MaterialController::class);
 
-    // Material Request System (All CRUD)
+    // Material Requests - Main CRUD + Issue/Return
     Route::apiResource('material-requests', MaterialRequestController::class);
     Route::patch('material-requests/{id}/status', [MaterialRequestController::class, 'updateStatus']);
     Route::post('material-requests/{id}/issue', [MaterialRequestController::class, 'issue']);
-    Route::post('material-requests/{id}/return', [MaterialRequestController::class, 'returnMaterial']); 
-    Route::apiResource('material-request-actions', MaterialRequestActionController::class);
-    Route::apiResource('material-issue-records', MaterialIssueRecordController::class);
-    Route::apiResource('material-returns', MaterialReturnController::class);
-    Route::apiResource('material-stock-movements', MaterialStockMovementController::class);
+    Route::post('material-requests/{id}/return', [MaterialRequestController::class, 'returnMaterial']);
+
+    // Supporting resources (read-only recommended)
+    Route::get('material-request-actions', [MaterialRequestActionController::class, 'index']);
+    Route::get('material-issue-records', [MaterialIssueRecordController::class, 'index']);
+    Route::get('material-returns', [MaterialReturnController::class, 'index']);
+    Route::get('material-stock-movements', [MaterialStockMovementController::class, 'index']);
 });

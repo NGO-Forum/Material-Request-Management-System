@@ -15,6 +15,12 @@ class MaterialIssueRecordController extends Controller
         return response()->json($data, 200);
     }
 
+    public function show($id)
+    {
+        $model = MaterialIssueRecord::with(['request', 'issuedBy'])->findOrFail($id);
+        return response()->json($model, 200);
+    }
+
     // MaterialIssueRecordController.php
     public function store(Request $request)
     {
@@ -31,12 +37,6 @@ class MaterialIssueRecordController extends Controller
             'message' => 'Material issued successfully',
             'data' => $record->load('issuedBy')
         ], 201);
-    }
-
-    public function show($id)
-    {
-        $model = MaterialIssueRecord::with(['request', 'issuedBy'])->findOrFail($id);
-        return response()->json($model, 200);
     }
 
     public function update(Request $request, $id)

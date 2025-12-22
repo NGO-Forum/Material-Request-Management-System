@@ -116,7 +116,7 @@
                       Returned On
                     </v-list-item-title>
                     <v-list-item-subtitle class="font-weight-bold">
-                      {{ formatFullDate(returnRecord.created_at) }}
+                      {{ formatFullDate(returnRecord.return_date) }}
                     </v-list-item-subtitle>
                   </v-list-item>
                 </v-list>
@@ -360,8 +360,6 @@ import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 
 import {
-  CircleCheckIcon,
-  CircleXIcon,
   CheckIcon,
   XIcon,
   AlertTriangleIcon
@@ -499,22 +497,14 @@ const executeAction = async () => {
   }
 }
 
-// FIXED: Issue Material - Now works perfectly
 const issueMaterial = async () => {
   if (!request.value?.id) return
   processing.value = true
   try {
-    // 1. Create issue record
-    await axiosClient.post('/material-issue-records', {
-      request_id: request.value.id,
+    await axiosClient.post(`/material-requests/${request.value.id}/issue`, {
       issued_by: authStore.user?.id,
       issued_date: issueForm.value.issued_date,
       expected_return_date: issueForm.value.expected_return_date || null
-    })
-
-    // 2. Update status to issued
-    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
-      status: 'issued'
     })
 
     showMessage('Material issued successfully!', 'success')
@@ -529,24 +519,15 @@ const issueMaterial = async () => {
   }
 }
 
-// FIXED: Return Material - Now works perfectly
 const returnMaterial = async () => {
   if (!request.value?.id) return
   processing.value = true
   try {
-    // 1. Create return record
-    await axiosClient.post('/material-returns', {
-      request_id: request.value.id,
+    await axiosClient.post(`/material-requests/${request.value.id}/return`, {
       returned_by: authStore.user?.id,
       it_inspected_by: authStore.user?.id,
       it_condition_status: returnForm.value.it_condition_status,
-      it_remarks: returnForm.value.it_remarks,
-      return_date: today
-    })
-
-    // 2. Update status to returned
-    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
-      status: 'returned'
+      it_remarks: returnForm.value.it_remarks
     })
 
     showMessage('Material returned successfully!', 'success')
@@ -565,7 +546,13 @@ const loadData = async () => {
   loading.value = true
   try {
     const id = Number(route.params.id)
-    const [reqRes, actionsRes, issuesRes, returnsRes] = await Promise.all([
+
+    const [
+      reqRes,
+      actionsRes,
+      issuesRes,
+      returnsRes
+    ] = await Promise.all([
       axiosClient.get(`/material-requests/${id}`),
       axiosClient.get('/material-request-actions'),
       axiosClient.get('/material-issue-records'),
@@ -576,12 +563,21 @@ const loadData = async () => {
     if (!req) throw new Error('Request not found')
     request.value = req
 
+    // Filter actions for this request
     const actions = (actionsRes.data.data || actionsRes.data || []).filter((a: any) => a.request_id === id)
+
+    // Find issue and return records
     issueRecord.value = (issuesRes.data.data || issuesRes.data || []).find((i: any) => i.request_id === id) || null
     returnRecord.value = (returnsRes.data.data || returnsRes.data || []).find((r: any) => r.request_id === id) || null
 
+    // Build timeline
     timeline.value = [
-      { type: 'created', title: 'Request Created', by: req.requester?.name, date: req.created_at },
+      {
+        type: 'created',
+        title: 'Request Created',
+        by: req.requester?.name || 'System',
+        date: req.created_at
+      },
       ...actions.map((a: any) => ({
         type: a.action_type,
         title: a.action_type.charAt(0).toUpperCase() + a.action_type.slice(1),
@@ -589,12 +585,23 @@ const loadData = async () => {
         date: a.created_at,
         remarks: a.remarks
       })),
-      issueRecord.value && { type: 'issued', title: 'Material Issued', by: issueRecord.value.issuedBy?.name, date: issueRecord.value.issued_date },
-      returnRecord.value && { type: 'returned', title: 'Material Returned', by: returnRecord.value.returnedBy?.name, date: returnRecord.value.created_at, remarks: returnRecord.value.it_remarks }
-    ].filter(Boolean)
+      issueRecord.value && {
+        type: 'issued',
+        title: 'Material Issued',
+        by: issueRecord.value.issuedBy?.name || 'System',
+        date: issueRecord.value.issued_date
+      },
+      returnRecord.value && {
+        type: 'returned',
+        title: 'Material Returned',
+        by: returnRecord.value.returnedBy?.name || 'System',
+        date: returnRecord.value.return_date,
+        remarks: returnRecord.value.it_remarks
+      }
+    ].filter(Boolean) as any[]
 
   } catch (err) {
-    showMessage('Failed to load request', 'error')
+    showMessage('Failed to load request details', 'error')
     router.push('/main/requests')
   } finally {
     loading.value = false
@@ -607,5 +614,8 @@ onMounted(loadData)
 <style scoped>
 .rounded-xl {
   border-radius: 20px !important;
+}
+.gap-4 {
+  gap: 1rem;
 }
 </style>
