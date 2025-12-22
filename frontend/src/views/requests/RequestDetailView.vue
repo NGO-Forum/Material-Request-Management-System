@@ -226,11 +226,15 @@
       <!-- Right Column -->
       <v-col cols="12" lg="4">
         <v-card v-if="issueRecord" elevation="12" class="mb-6 rounded-xl">
-          <v-card-title class="bg-info text-white pa-6">
+          <v-card-title
+            class="pa-6"
+            style="background-color: #2196f3; color: white;"
+          >
             Material Issued
           </v-card-title>
+
           <v-card-text class="pt-8">
-            <p><strong>Issued by:</strong> {{ issueRecord.issuedBy?.name || '—' }}</p>
+            <p><strong>Issued by:</strong> {{ issueRecord.issued_by_name || '—' }}</p>
             <p><strong>Date:</strong> {{ formatFullDate(issueRecord.issued_date) }}</p>
             <p><strong>Expected Return:</strong>
               {{ issueRecord.expected_return_date ? formatFullDate(issueRecord.expected_return_date) : 'Not set' }}
@@ -239,11 +243,15 @@
         </v-card>
 
         <v-card v-if="returnRecord" elevation="12" class="rounded-xl">
-          <v-card-title class="bg-purple text-white pa-6">
+          <v-card-title
+            class="pa-6"
+            style="background-color: purple; color: whitesmoke;"
+          >
             Material Returned
           </v-card-title>
+
           <v-card-text class="pt-8">
-            <p><strong>Returned by:</strong> {{ returnRecord.returnedBy?.name || '—' }}</p>
+            <p><strong>Returned by:</strong> {{ returnRecord.returned_by_name || '—' }}</p>
             <p><strong>Condition:</strong>
               <v-chip :color="returnRecord.it_condition_status === 'Good' ? 'success' : 'error'" class="ml-2">
                 {{ returnRecord.it_condition_status || '—' }}
@@ -566,11 +574,11 @@ const loadData = async () => {
     // Filter actions for this request
     const actions = (actionsRes.data.data || actionsRes.data || []).filter((a: any) => a.request_id === id)
 
-    // Find issue and return records
+    // Find issue and return records for this request
     issueRecord.value = (issuesRes.data.data || issuesRes.data || []).find((i: any) => i.request_id === id) || null
     returnRecord.value = (returnsRes.data.data || returnsRes.data || []).find((r: any) => r.request_id === id) || null
 
-    // Build timeline
+    // Build timeline with consistent "by" field
     timeline.value = [
       {
         type: 'created',
@@ -587,18 +595,31 @@ const loadData = async () => {
       })),
       issueRecord.value && {
         type: 'issued',
-        title: 'Material Issued',
-        by: issueRecord.value.issuedBy?.name || 'System',
+        title: 'Material physically issued',
+        by: issueRecord.value.issued_by?.name || issueRecord.value.issuedBy?.name || 'System',
         date: issueRecord.value.issued_date
       },
       returnRecord.value && {
         type: 'returned',
         title: 'Material Returned',
-        by: returnRecord.value.returnedBy?.name || 'System',
+        by: returnRecord.value.returned_by?.name || returnRecord.value.returnedBy?.name || 'System',
         date: returnRecord.value.return_date,
         remarks: returnRecord.value.it_remarks
       }
     ].filter(Boolean) as any[]
+
+    // For the right column cards - use the same name as in timeline
+    if (issueRecord.value) {
+      issueRecord.value.issued_by_name = issueRecord.value.issued_by?.name 
+        || issueRecord.value.issuedBy?.name 
+        || '—'
+    }
+
+    if (returnRecord.value) {
+      returnRecord.value.returned_by_name = returnRecord.value.returned_by?.name 
+        || returnRecord.value.returnedBy?.name 
+        || '—'
+    }
 
   } catch (err) {
     showMessage('Failed to load request details', 'error')
