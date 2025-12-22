@@ -26,6 +26,9 @@ export const useAuthStore = defineStore({
     userRole: (state) => state.user?.role?.name || '',
   },
   actions: {
+    // --------------------------
+    // LOGIN
+    // --------------------------
     async login(email: string, password: string) {
       try {
         const response = await axiosClient.post('/login', { email, password });
@@ -44,6 +47,32 @@ export const useAuthStore = defineStore({
       }
     },
 
+    // --------------------------
+    // REGISTER
+    // --------------------------
+    async register(formData: FormData) {
+      try {
+        const response = await axiosClient.post('/register', formData);
+        const { token, user } = response.data;
+
+        // Automatically log in after registration
+        this.token = token;
+        this.user = user;
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        this.redirectAfterLogin();
+        return response;
+      } catch (error: any) {
+        const msg = error.response?.data?.message || 'Registration failed';
+        throw error; // Let the component handle validation errors
+      }
+    },
+
+    // --------------------------
+    // FETCH CURRENT USER
+    // --------------------------
     async fetchUser() {
       try {
         const response = await axiosClient.get('/me');
@@ -54,6 +83,9 @@ export const useAuthStore = defineStore({
       }
     },
 
+    // --------------------------
+    // LOGOUT
+    // --------------------------
     logout() {
       this.user = null;
       this.token = null;
@@ -63,6 +95,9 @@ export const useAuthStore = defineStore({
       router.push('/login');
     },
 
+    // --------------------------
+    // INITIALIZE AUTH
+    // --------------------------
     initializeAuth() {
       const token = localStorage.getItem('token');
       const userData = localStorage.getItem('user');
@@ -77,6 +112,9 @@ export const useAuthStore = defineStore({
       }
     },
 
+    // --------------------------
+    // REDIRECT AFTER LOGIN / REGISTER
+    // --------------------------
     redirectAfterLogin() {
       if (!this.user) return router.push('/login');
 
