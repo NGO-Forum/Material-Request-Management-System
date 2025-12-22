@@ -48,7 +48,7 @@
                 </template>
               </v-select>
 
-              <!-- Quantity -->
+              <!-- Quantity --> 
               <v-text-field
                 v-model.number="form.quantity"
                 label="Quantity Required *"
