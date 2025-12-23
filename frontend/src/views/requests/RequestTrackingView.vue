@@ -5,7 +5,7 @@
       <div>
         <h1 class="text-h4 font-weight-bold mb-1">Request Tracking Dashboard</h1>
         <p class="text-body-1 text-medium-emphasis">
-          Real-time monitoring of all material requests and workflow
+          Real-time monitoring of material requests and workflow
         </p>
       </div>
       <v-btn
@@ -19,6 +19,7 @@
         Export CSV
       </v-btn>
     </div>
+
     <!-- Charts -->
     <v-row class="mb-8">
       <v-col cols="12" md="6">
@@ -33,20 +34,27 @@
             :options="statusChart.options"
             :series="statusChart.series"
           />
+          <div v-else class="text-center py-8 text-medium-emphasis">
+            No requests to display
+          </div>
         </v-card>
       </v-col>
 
       <v-col cols="12" md="6">
         <v-card elevation="10" class="pa-6 h-100 bubble-shape">
           <v-card-title class="text-h6 font-weight-bold">
-            Weekly Request Trend
+            Last 7 Days Trend
           </v-card-title>
           <VueApexCharts
+            v-if="trendChart.series[0].data.some(d => d > 0)"
             type="bar"
             height="340"
             :options="trendChart.options"
             :series="trendChart.series"
           />
+          <div v-else class="text-center py-8 text-medium-emphasis">
+            No activity in the last 7 days
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -62,14 +70,14 @@
       </v-card-title>
 
       <v-data-table
-        :headers="headers"
+        :headers="visibleHeaders"
         :items="recentRequests"
         items-per-page="10"
         class="elevation-0"
         density="comfortable"
         :loading="loading"
       >
-        <!-- Requester -->
+        <!-- Requester (Admin only) -->
         <template #item.requester="{ item }">
           <div class="d-flex align-center gap-3 py-3">
             <v-avatar size="40">
@@ -144,25 +152,40 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import axiosClient from '@/plugins/axios'
+import { useAuthStore } from '@/stores/auth'
 import { DownloadIcon } from 'vue-tabler-icons'
 import VueApexCharts from 'vue3-apexcharts'
 
+const authStore = useAuthStore()
+const currentUserId = computed(() => authStore.user?.id || 0)
+
+// Fixed: Access role.name and normalize to lowercase
+const userRole = computed(() => authStore.user?.role?.name?.toLowerCase() || 'employee')
+
 // State
 const requests = ref<any[]>([])
-const recentRequests = ref<any[]>([])
 const usersCache = ref<Map<number, any>>(new Map())
 const loading = ref(true)
 const exporting = ref(false)
+
+// Filtered requests based on role
+const filteredRequests = computed(() => {
+  if (userRole.value === 'admin') {
+    return requests.value
+  }
+  return requests.value.filter(r => r.requester_id === currentUserId.value)
+})
+
+const recentRequests = computed(() => filteredRequests.value.slice(0, 10))
 
 // Helper: Get user from cache
 const getRequester = (id: number) => {
   return usersCache.value.get(id) || { name: 'Loading...', department: { name: '' } }
 }
 
-// Fetch single user if not cached
+// Fetch single user if not cached (only for admin)
 const fetchUser = async (userId: number) => {
   if (usersCache.value.has(userId)) return
-
   try {
     const { data } = await axiosClient.get(`/users/${userId}`)
     const user = data.data || data
@@ -179,15 +202,13 @@ onMounted(async () => {
     loading.value = true
     const { data } = await axiosClient.get('/material-requests')
     const list = (data.data || data || []) as any[]
+    requests.value = list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    requests.value = list
-    recentRequests.value = list.slice(0, 10)
-
-    // Collect unique requester IDs
-    const requesterIds = [...new Set(list.map(r => r.requester_id).filter(Boolean))]
-
-    // Fetch all missing users in parallel
-    await Promise.all(requesterIds.map(id => fetchUser(id)))
+    // Only fetch user details if admin
+    if (userRole.value === 'admin') {
+      const requesterIds = [...new Set(list.map(r => r.requester_id).filter(Boolean))]
+      await Promise.all(requesterIds.map(id => fetchUser(id)))
+    }
   } catch (err) {
     console.error('Failed to load requests', err)
   } finally {
@@ -195,40 +216,46 @@ onMounted(async () => {
   }
 })
 
-// Summary Cards
-const summaryCards = computed(() => {
-  const total = requests.value.length
-  const pending = requests.value.filter(r => r.status === 'pending').length
-  const approved = requests.value.filter(r => r.status === 'approved').length
-  const processed = requests.value.filter(r => ['issued', 'returned'].includes(r.status)).length
+// Table headers - hide Requester column for non-admin
+const baseHeaders = [
+  { title: 'Requester', key: 'requester', sortable: false, width: '300' },
+  { title: 'Material', key: 'material', sortable: false },
+  { title: 'Qty', key: 'quantity', align: 'center' as const, width: '80' },
+  { title: 'Status', key: 'status', align: 'center' as const, width: '120' },
+  { title: 'Date', key: 'created_at', width: '160' },
+  { title: '', key: 'actions', sortable: false, align: 'end' as const, width: '60' }
+]
 
-  return [
-    { title: 'Total Requests', value: total, color: 'blue-grey-darken-1', icon: 'mdi-file-document-multiple-outline' },
-    { title: 'Pending Approval', value: pending, color: 'orange-darken-2', icon: 'mdi-clock-outline' },
-    { title: 'Approved', value: approved, color: 'success', icon: 'mdi-check-circle' },
-    { title: 'Processed', value: processed, color: 'purple', icon: 'mdi-package-up' }
-  ]
+const visibleHeaders = computed(() => {
+  if (userRole.value === 'admin') {
+    return baseHeaders
+  }
+  return baseHeaders.filter(h => h.key !== 'requester')
 })
 
 // Status Donut Chart
 const statusChart = computed(() => {
+  const list = filteredRequests.value
   const counts = {
-    pending: requests.value.filter(r => r.status === 'pending').length,
-    approved: requests.value.filter(r => r.status === 'approved').length,
-    issued: requests.value.filter(r => r.status === 'issued').length,
-    returned: requests.value.filter(r => r.status === 'returned').length,
-    rejected: requests.value.filter(r => r.status === 'rejected').length
+    pending: list.filter(r => r.status === 'pending').length,
+    approved: list.filter(r => r.status === 'approved').length,
+    issued: list.filter(r => r.status === 'issued').length,
+    returned: list.filter(r => r.status === 'returned').length,
+    rejected: list.filter(r => r.status === 'rejected').length,
+    cancelled: list.filter(r => r.status === 'cancelled').length
   }
 
   const series = Object.values(counts).filter(v => v > 0)
-  const labels = ['Pending', 'Approved', 'Issued', 'Returned', 'Rejected'].filter((_, i) => Object.values(counts)[i] > 0)
+  const labels = Object.keys(counts)
+    .map(k => k.charAt(0).toUpperCase() + k.slice(1))
+    .filter((_, i) => Object.values(counts)[i] > 0)
 
   return {
     series,
     options: {
       chart: { type: 'donut' as const },
       labels,
-      colors: ['#FF9800', '#4CAF50', '#2196F3', '#9C27B0', '#F44336'],
+      colors: ['#FF9800', '#4CAF50', '#2196F3', '#9C27B0', '#F44336', '#9E9E9E'],
       legend: { position: 'bottom' as const },
       dataLabels: { enabled: true },
       plotOptions: {
@@ -240,7 +267,7 @@ const statusChart = computed(() => {
               total: {
                 show: true,
                 label: 'Total',
-                formatter: () => requests.value.length.toString()
+                formatter: () => list.length.toString()
               }
             }
           }
@@ -254,28 +281,39 @@ const statusChart = computed(() => {
   }
 })
 
-// Weekly Trend (you can replace with real data later)
-const trendChart = {
-  series: [{ name: 'Requests', data: [12, 19, 15, 25, 22, 30, 28] }],
-  options: {
-    chart: { toolbar: { show: false } },
-    plotOptions: { bar: { borderRadius: 8, distributed: true } },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
-    colors: ['#2196F3'],
-    grid: { show: false },
-    dataLabels: { enabled: false }
-  }
-}
+// Weekly Trend (Last 7 days real data)
+const trendChart = computed(() => {
+  const days = []
+  const data = []
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
 
-// Table headers
-const headers = [
-  { title: 'Requester', key: 'requester', sortable: false, width: '300' },
-  { title: 'Material', key: 'material', sortable: false },
-  { title: 'Qty', key: 'quantity', align: 'center' as const, width: '80' },
-  { title: 'Status', key: 'status', align: 'center' as const, width: '120' },
-  { title: 'Date', key: 'created_at', width: '160' },
-  { title: '', key: 'actions', sortable: false, align: 'end' as const, width: '60' }
-]
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(now)
+    date.setDate(date.getDate() - i)
+    days.push(date.toLocaleDateString('en-US', { weekday: 'short' }))
+    
+    const count = filteredRequests.value.filter(r => {
+      const reqDate = new Date(r.created_at)
+      reqDate.setHours(0, 0, 0, 0)
+      return reqDate.getTime() === date.getTime()
+    }).length
+    data.push(count)
+  }
+
+  return {
+    series: [{ name: 'Requests', data }],
+    options: {
+      chart: { toolbar: { show: false } },
+      plotOptions: { bar: { borderRadius: 8, distributed: true } },
+      xaxis: { categories: days },
+      colors: ['#2196F3'],
+      grid: { show: false },
+      dataLabels: { enabled: false },
+      tooltip: { y: { formatter: (val: number) => `${val} request${val !== 1 ? 's' : ''}` } }
+    }
+  }
+})
 
 // Status chip color
 const getStatusColor = (status: string) => {
@@ -284,7 +322,8 @@ const getStatusColor = (status: string) => {
     approved: 'success',
     issued: 'info',
     returned: 'purple',
-    rejected: 'error'
+    rejected: 'error',
+    cancelled: 'grey'
   }
   return map[status] || 'grey'
 }
@@ -300,24 +339,25 @@ const formatDate = (date: string) => {
   })
 }
 
-// CSV Export with proper escaping
+// CSV Export (filtered by role)
 const exportToCSV = () => {
   exporting.value = true
 
   const escapeCSV = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`
 
   const rows = [
-    ['Requester', 'Email', 'Department', 'Material', 'Quantity', 'Purpose', 'Status', 'Date'],
-    ...requests.value.map(r => {
+    ['Requester', 'Email', 'Department', 'Material', 'Quantity', 'Purpose', 'Status', 'Required By', 'Date Created'],
+    ...filteredRequests.value.map(r => {
       const user = usersCache.value.get(r.requester_id) || {}
       return [
-        user.name || '',
-        user.email || '',
+        user.name || '—',
+        user.email || '—',
         user.department?.name || '—',
-        r.material?.name || '',
+        r.material?.name || '—',
         r.quantity,
         r.purpose || '—',
         r.status.toUpperCase(),
+        r.receipt_date || '—',
         new Date(r.created_at).toLocaleDateString()
       ].map(escapeCSV)
     })
@@ -342,14 +382,5 @@ const exportToCSV = () => {
 <style scoped>
 .bubble-shape {
   border-radius: 28px !important;
-}
-
-.summary-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.summary-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 20px 35px -5px rgba(0,0,0,0.15) !important;
 }
 </style>

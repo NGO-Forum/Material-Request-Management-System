@@ -34,21 +34,21 @@
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
                     <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
-                    <v-list-item-subtitle>
+                    <v-list-item-subtitle class="d-flex align-center gap-2 flex-wrap">
                       <v-chip
                         size="x-small"
-                        :color="item.raw.qty_remaining > 5 ? 'success' : item.raw.qty_remaining > 0 ? 'warning' : 'error'"
+                        :color="getStockColor(item.raw.qty_remaining)"
                       >
                         {{ item.raw.qty_remaining }} left
                       </v-chip>
-                      • {{ item.raw.category?.name || 'Uncategorized' }}
-                      <span v-if="item.raw.model" class="ml-2 text-grey">• {{ item.raw.model }}</span>
+                      <span>• {{ item.raw.category?.name || 'Uncategorized' }}</span>
+                      <span v-if="item.raw.model" class="text-grey">• {{ item.raw.model }}</span>
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
               </v-select>
 
-              <!-- Quantity --> 
+              <!-- Quantity -->
               <v-text-field
                 v-model.number="form.quantity"
                 label="Quantity Required *"
@@ -61,7 +61,7 @@
                 :disabled="!form.material_id"
               />
 
-              <!-- Required By Date (Receipt Date) -->
+              <!-- Required By Date -->
               <v-text-field
                 v-model="form.receipt_date"
                 label="Required By Date *"
@@ -69,10 +69,7 @@
                 prepend-inner-icon="mdi-calendar-clock"
                 variant="outlined"
                 :min="today"
-                :rules="[
-                  v => !!v || 'Please select a date',
-                  v => new Date(v) >= new Date(today) || 'Date cannot be in the past'
-                ]"
+                :rules="dateRules"
               />
 
               <!-- Purpose -->
@@ -95,7 +92,7 @@
                   type="submit"
                   size="large"
                   :disabled="!isFormValid"
-                  :loading="false"
+                  :loading="validating"
                 >
                   <v-icon start>mdi-eye</v-icon>
                   Preview Request
@@ -139,7 +136,7 @@
                       >
                         <v-icon start>mdi-calendar-alert</v-icon>
                         {{ formatDateOnly(form.receipt_date) }}
-                        <span v-if="isUrgent(form.receipt_date)" class="ml-2">(URGENT)</span>
+                        <span v-if="isUrgent(form.receipt_date)" class="ml-2 font-weight-bold">(URGENT)</span>
                       </v-chip>
                     </td>
                   </tr>
@@ -210,6 +207,7 @@ if (!authStore.isLoggedIn) {
 
 const isPreview = ref(false)
 const saving = ref(false)
+const validating = ref(false)
 const loadingMaterials = ref(true)
 const materials = ref<any[]>([])
 const formRef = ref<any>(null)
@@ -227,12 +225,17 @@ const selectedMaterial = computed(() =>
   materials.value.find(m => m.id === form.value.material_id)
 )
 
-const selectedStock = computed(() => selectedMaterial.value?.qty_remaining || 0)
+const selectedStock = computed(() => selectedMaterial.value?.qty_remaining ?? 0)
 
 const quantityRules = [
   (v: any) => !!v || 'Quantity is required',
   (v: any) => v >= 1 || 'Minimum quantity is 1',
   (v: any) => v <= selectedStock.value || `Only ${selectedStock.value} unit(s) available`
+]
+
+const dateRules = [
+  (v: any) => !!v || 'Please select a date',
+  (v: any) => new Date(v) >= new Date(today) || 'Date cannot be in the past'
 ]
 
 const isFormValid = computed(() => {
@@ -244,6 +247,12 @@ const isFormValid = computed(() => {
     new Date(form.value.receipt_date) >= new Date(today)
   )
 })
+
+const getStockColor = (stock: number) => {
+  if (stock === 0) return 'error'
+  if (stock <= 5) return 'warning'
+  return 'success'
+}
 
 const isUrgent = (date: string) => {
   const diffDays = Math.ceil((new Date(date).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
@@ -269,11 +278,10 @@ const showMsg = (msg: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, message: msg, color }
 }
 
-// Reset quantity if current value exceeds new stock
 const resetQuantityIfInvalid = async () => {
   await nextTick()
   if (form.value.quantity > selectedStock.value) {
-    form.value.quantity = selectedStock.value || 1
+    form.value.quantity = Math.max(1, selectedStock.value)
   }
 }
 
@@ -282,16 +290,21 @@ onMounted(async () => {
     const { data } = await axiosClient.get('/materials')
     materials.value = data.data || data || []
   } catch (err) {
-    showMsg('Failed to load materials list', 'error')
+    showMsg('Failed to load materials. Please try again later.', 'error')
   } finally {
     loadingMaterials.value = false
   }
 })
 
 const goToPreview = async () => {
-  const { valid } = await formRef.value.validate()
-  if (valid && isFormValid.value) {
-    isPreview.value = true
+  validating.value = true
+  try {
+    const { valid } = await formRef.value.validate()
+    if (valid && isFormValid.value) {
+      isPreview.value = true
+    }
+  } finally {
+    validating.value = false
   }
 }
 

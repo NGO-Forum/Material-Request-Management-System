@@ -9,44 +9,36 @@ class MaterialRequest extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
-    'requester_id',
-    'material_id',
-    'quantity',
-    'receipt_date',
-    'purpose',
-    'status',
-    'manager_id',
-    'admin_hr_id',
-    'it_staff_id',
-    'remarks'
-];
+        'requester_id',
+        'material_id',
+        'quantity',
+        'receipt_date',
+        'purpose',
+        'status',
+    ];
 
-protected $casts = [
-    'receipt_date' => 'date:Y-m-d',
-    'created_at'   => 'datetime',
-    'updated_at'   => 'datetime',
-];
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'receipt_date' => 'date:Y-m-d',
+        'created_at'   => 'datetime',
+        'updated_at'   => 'datetime',
+        // 'status' is string, no need to cast
+    ];
 
     // Relationships
     public function requester()
     {
         return $this->belongsTo(User::class, 'requester_id');
-    }
-
-    public function manager()
-    {
-        return $this->belongsTo(User::class, 'manager_id');
-    }
-
-    public function adminHR()
-    {
-        return $this->belongsTo(User::class, 'admin_hr_id');
-    }
-
-    public function itStaff()
-    {
-        return $this->belongsTo(User::class, 'it_staff_id');
     }
 
     public function material()

@@ -5,21 +5,43 @@ namespace App\Http\Controllers\V1\MaterialRequests;
 use App\Http\Controllers\Controller;
 use App\Models\MaterialStockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MaterialStockMovementController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+    }
+
     public function index()
     {
-        $data = MaterialStockMovement::with(['material', 'request'])->get();
-        return response()->json($data, 200);
+        $user = Auth::user();
+
+        $query = MaterialStockMovement::with(['material', 'request.requester']);
+
+        if ($user->role !== 'admin') {
+            $query->whereHas('request', function ($q) use ($user) {
+                $q->where('requester_id', $user->id);
+            });
+        }
+
+        $data = $query->latest()->get();
+
+        return response()->json(['success' => true, 'data' => $data], 200);
     }
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $validated = $request->validate([
             'material_id' => 'required|exists:materials,id',
             'request_id' => 'nullable|exists:material_requests,id',
-            'movement_type' => 'required|string',
+            'movement_type' => 'required|in:issue,return,adjustment',
             'quantity' => 'required|integer|min:1',
             'remarks' => 'nullable|string',
         ]);
@@ -27,6 +49,7 @@ class MaterialStockMovementController extends Controller
         $model = MaterialStockMovement::create($validated);
 
         return response()->json([
+            'success' => true,
             'message' => 'Stock movement created successfully',
             'data' => $model
         ], 201);
@@ -34,12 +57,23 @@ class MaterialStockMovementController extends Controller
 
     public function show($id)
     {
+        $user = Auth::user();
         $model = MaterialStockMovement::with(['material', 'request'])->findOrFail($id);
-        return response()->json($model, 200);
+
+        if ($user->role !== 'admin' && $model->request && $model->request->requester_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json(['success' => true, 'data' => $model], 200);
     }
 
     public function update(Request $request, $id)
     {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $model = MaterialStockMovement::findOrFail($id);
 
         $validated = $request->validate([
@@ -53,6 +87,7 @@ class MaterialStockMovementController extends Controller
         $model->update($validated);
 
         return response()->json([
+            'success' => true,
             'message' => 'Stock movement updated',
             'data' => $model
         ], 200);
@@ -60,7 +95,13 @@ class MaterialStockMovementController extends Controller
 
     public function destroy($id)
     {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         MaterialStockMovement::findOrFail($id)->delete();
-        return response()->json(['message' => 'Stock movement deleted'], 200);
+
+        return response()->json(['success' => true, 'message' => 'Stock movement deleted'], 200);
     }
 }

@@ -15,7 +15,7 @@
               v-model="search"
               prepend-inner-icon="mdi-magnify"
               label="Search requests..."
-              placeholder="Search by material, requester, purpose..."
+              placeholder="Search by material, purpose, status..."
               single-line
               hide-details
               clearable
@@ -25,8 +25,8 @@
           </v-card-title>
 
           <v-data-table
-            :headers="headers"
-            :items="requests"
+            :headers="visibleHeaders"
+            :items="filteredRequests"
             :search="search"
             :loading="loading"
             items-per-page="15"
@@ -42,7 +42,7 @@
                 label
                 class="font-weight-bold text-uppercase px-3"
               >
-                {{ item.status }}
+                {{ item.status.toUpperCase() }}
               </v-chip>
             </template>
 
@@ -65,7 +65,7 @@
             <template #item.receipt_date="{ item }">
               <div class="text-center">
                 <v-chip
-                  :color="isUrgent(item.receipt_date) ? 'red' : 'primary'"
+                  :color="isUrgent(item.receipt_date) ? 'red-darken-1' : 'primary'"
                   variant="tonal"
                   size="small"
                   class="font-weight-medium"
@@ -79,7 +79,14 @@
               </div>
             </template>
 
-            <!-- Requester -->
+            <!-- Purpose -->
+            <template #item.purpose="{ item }">
+              <div class="text-truncate" style="max-width: 200px;">
+                {{ item.purpose || '—' }}
+              </div>
+            </template>
+
+            <!-- Requester (Only visible to Admin) -->
             <template #item.requester="{ item }">
               <div>
                 <div class="font-weight-medium">{{ item.requester?.name || 'Unknown' }}</div>
@@ -92,7 +99,7 @@
               <span class="text-no-wrap">{{ formatDate(item.created_at) }}</span>
             </template>
 
-            <!-- Actions Menu - Perfect match with RolesView -->
+            <!-- Actions -->
             <template #item.actions="{ item }">
               <v-menu location="bottom">
                 <template #activator="{ props }">
@@ -102,7 +109,6 @@
                 </template>
 
                 <v-list density="compact" class="py-1">
-                  <!-- View Details -->
                   <v-list-item :to="`/main/requests/${item.id}`">
                     <v-list-item-title class="d-flex align-center gap-3">
                       <EyeIcon :size="18" />
@@ -110,7 +116,7 @@
                     </v-list-item-title>
                   </v-list-item>
 
-                  <!-- Delete (only if pending & own request) -->
+                  <!-- Delete only for pending + own request -->
                   <v-list-item
                     v-if="item.status === 'pending' && item.requester.id === currentUserId"
                     @click="confirmDelete(item.id)"
@@ -136,7 +142,7 @@
           <TrashIcon :size="24" class="mr-2" />
           Confirm Delete
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           Are you sure you want to delete this request? This action cannot be undone.
         </v-card-text>
         <v-card-actions>
@@ -155,16 +161,13 @@
 import { ref, onMounted, computed } from 'vue'
 import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
-
-// Correct icons from vue-tabler-icons
-import {
-  DotsVerticalIcon,
-  EyeIcon,
-  TrashIcon   // This is the correct name!
-} from 'vue-tabler-icons'
+import { DotsVerticalIcon, EyeIcon, TrashIcon } from 'vue-tabler-icons'
 
 const authStore = useAuthStore()
 const currentUserId = computed(() => authStore.user?.id || 0)
+
+// Fixed: Access role.name and normalize to lowercase
+const userRole = computed(() => authStore.user?.role?.name?.toLowerCase() || 'employee')
 
 interface MaterialRequest {
   id: number
@@ -184,17 +187,34 @@ const deleteDialog = ref(false)
 const deleting = ref(false)
 const requestToDelete = ref<number | null>(null)
 
-const headers = [
+// Base headers
+const baseHeaders = [
   { title: '#', key: 'id', width: 70, align: 'center' as const },
   { title: 'Material', key: 'material', sortable: false },
   { title: 'Qty', key: 'quantity', align: 'center' as const, width: 80 },
   { title: 'Required By', key: 'receipt_date', align: 'center' as const, width: 150 },
-  { title: 'Purpose', key: 'purpose', sortable: false },
+  { title: 'Purpose', key: 'purpose', sortable: false, width: 200 },
   { title: 'Requester', key: 'requester', sortable: false },
   { title: 'Status', key: 'status', align: 'center' as const, width: 110 },
   { title: 'Requested On', key: 'created_at', width: 160 },
   { title: 'Actions', key: 'actions', sortable: false, align: 'center' as const, width: 80 }
 ]
+
+// Show Requester column only for Admin
+const visibleHeaders = computed(() => {
+  if (userRole.value === 'admin') {
+    return baseHeaders
+  }
+  return baseHeaders.filter(h => h.key !== 'requester')
+})
+
+// Filter requests: Admin sees all, others see only own
+const filteredRequests = computed(() => {
+  if (userRole.value === 'admin') {
+    return requests.value
+  }
+  return requests.value.filter(r => r.requester.id === currentUserId.value)
+})
 
 const getStatusColor = (status: string): string => {
   const map: Record<string, string> = {
@@ -229,6 +249,7 @@ const formatDateOnly = (date: string): string => {
 
 const isUrgent = (receiptDate: string): boolean => {
   const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const target = new Date(receiptDate)
   const diffTime = target.getTime() - today.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -248,8 +269,8 @@ const deleteRequest = async () => {
     await axiosClient.delete(`/material-requests/${requestToDelete.value}`)
     requests.value = requests.value.filter(r => r.id !== requestToDelete.value)
     deleteDialog.value = false
-  } catch (err) {
-    alert('Failed to delete request')
+  } catch (err: any) {
+    alert(err.response?.data?.message || 'Failed to delete request')
     console.error(err)
   } finally {
     deleting.value = false
@@ -264,6 +285,7 @@ onMounted(async () => {
     requests.value = data.data || data || []
   } catch (err) {
     console.error('Failed to load requests:', err)
+    alert('Failed to load material requests. Please try again.')
   } finally {
     loading.value = false
   }
@@ -273,10 +295,14 @@ onMounted(async () => {
 <style scoped>
 .v-data-table ::v-deep(th) {
   font-weight: 600 !important;
-  background-color: #f8f9fa;
+  background-color: #f8f9fa !important;
 }
 
 .text-error {
+  color: #d32f2f !important;
+}
+
+.text-red {
   color: #d32f2f !important;
 }
 </style>
