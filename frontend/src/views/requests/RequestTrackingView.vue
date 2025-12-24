@@ -441,4 +441,4 @@ const exportToCSV = () => {
 .min-width-300 {
   min-width: 300px;
 }
-</style>
+</style>  

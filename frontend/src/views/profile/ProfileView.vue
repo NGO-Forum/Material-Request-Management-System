@@ -103,12 +103,6 @@
                       {{ authStore.user?.last_login_at ? formatDateTime(authStore.user.last_login_at) : 'Never' }}
                     </v-list-item-subtitle>
                   </v-list-item>
-
-                  <v-list-item>
-                    <template #prepend><v-icon icon="mdi-fingerprint" class="text-red-600" /></template>
-                    <v-list-item-title class="font-weight-semibold">User ID</v-list-item-title>
-                    <v-list-item-subtitle class="font-mono text-caption">UID: {{ authStore.user?.id }}</v-list-item-subtitle>
-                  </v-list-item>
                 </v-list>
               </v-col>
             </v-row>
