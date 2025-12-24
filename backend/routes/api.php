@@ -40,7 +40,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('material-requests', MaterialRequestController::class);
     Route::patch('material-requests/{id}/status', [MaterialRequestController::class, 'updateStatus']);
     Route::post('material-requests/{id}/issue', [MaterialRequestController::class, 'issue']);
-    Route::post('material-requests/{id}/return', [MaterialRequestController::class, 'returnMaterial']);
+    Route::post('material-requests/{id}/initiate-return', [MaterialRequestController::class, 'initiateReturn']);
+    Route::post('material-requests/{id}/inspect-return', [MaterialRequestController::class, 'inspectReturn']);
+    Route::post('material-requests/{id}/confirm-return', [MaterialRequestController::class, 'confirmReturn']);
 
     // Supporting resources (read-only recommended)
     Route::get('material-request-actions', [MaterialRequestActionController::class, 'index']);

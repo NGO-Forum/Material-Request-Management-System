@@ -10,12 +10,10 @@
     >
       Back to Requests
     </v-btn>
-
     <!-- Loading -->
     <div v-if="loading" class="text-center py-16">
       <v-progress-circular indeterminate size="64" color="primary" />
     </div>
-
     <!-- Main Content -->
     <v-row v-else-if="request">
       <!-- Left Column -->
@@ -35,7 +33,6 @@
               • {{ formatFullDate(request.created_at) }}
             </p>
           </div>
-
           <v-card-text class="pa-8">
             <v-row>
               <v-col cols="12" md="6">
@@ -51,7 +48,6 @@
                       </span>
                     </v-list-item-subtitle>
                   </v-list-item>
-
                   <v-list-item>
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Quantity
@@ -60,7 +56,6 @@
                       {{ request.quantity }} unit(s)
                     </v-list-item-subtitle>
                   </v-list-item>
-
                   <v-list-item>
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Purpose
@@ -69,7 +64,6 @@
                       {{ request.purpose || 'Not specified' }}
                     </v-list-item-subtitle>
                   </v-list-item>
-
                   <v-list-item v-if="request.receipt_date">
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Required By
@@ -86,7 +80,6 @@
                   </v-list-item>
                 </v-list>
               </v-col>
-
               <v-col cols="12" md="6">
                 <v-list bg-color="transparent" density="comfortable">
                   <v-list-item>
@@ -100,11 +93,10 @@
                         class="font-weight-bold px-8 py-4 text-h6"
                         label
                       >
-                        {{ request.status.toUpperCase() }}
+                        {{ request.status.toUpperCase().replace('_', ' ') }}
                       </v-chip>
                     </v-list-item-subtitle>
                   </v-list-item>
-
                   <v-list-item v-if="issueRecord">
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Issued On
@@ -113,7 +105,6 @@
                       {{ formatFullDate(issueRecord.issued_date) }}
                     </v-list-item-subtitle>
                   </v-list-item>
-
                   <v-list-item v-if="returnRecord">
                     <v-list-item-title class="font-weight-medium text-grey-darken-2">
                       Returned On
@@ -125,13 +116,11 @@
                 </v-list>
               </v-col>
             </v-row>
-
             <!-- Action Buttons - ROLE BASED -->
             <v-divider class="my-10" />
             <div class="d-flex flex-wrap gap-4">
-              <template v-if="canApproveOrReject">
+              <template v-if="isAdmin && request.status === 'pending'">
                 <v-btn
-                  v-if="request.status === 'pending'"
                   color="success"
                   size="large"
                   prepend-icon="mdi-check-bold"
@@ -141,9 +130,7 @@
                 >
                   Approve
                 </v-btn>
-
                 <v-btn
-                  v-if="request.status === 'pending'"
                   color="error"
                   size="large"
                   prepend-icon="mdi-close-thick"
@@ -154,9 +141,8 @@
                   Reject
                 </v-btn>
               </template>
-
               <v-btn
-                v-if="['pending', 'approved'].includes(request.status) && (isRequester || canApproveOrReject)"
+                v-if="['pending', 'approved'].includes(request.status) && (isRequester || isAdmin)"
                 color="grey-darken-2"
                 size="large"
                 prepend-icon="mdi-cancel"
@@ -166,9 +152,8 @@
               >
                 Cancel
               </v-btn>
-
               <v-btn
-                v-if="request.status === 'approved' && !issueRecord && canApproveOrReject"
+                v-if="request.status === 'approved' && !issueRecord && isItAssistant"
                 color="info"
                 size="large"
                 prepend-icon="mdi-package-down"
@@ -178,26 +163,45 @@
               >
                 Issue Material
               </v-btn>
-
               <v-btn
-                v-if="request.status === 'issued' && !returnRecord && canApproveOrReject"
+                v-if="request.status === 'issued' && !returnRecord && isRequester"
                 color="purple"
                 size="large"
                 prepend-icon="mdi-package-up"
                 elevation="6"
                 :loading="processing"
-                @click="returnDialog = true"
+                @click="openConfirmDialog('pending_return', 'Initiate Return', 'Initiate return of the material?', 'warning', AlertTriangleIcon)"
               >
                 Return Material
               </v-btn>
-
-              <div v-if="!canApproveOrReject && !['pending', 'approved'].includes(request.status)" class="text-medium-emphasis">
+              <v-btn
+                v-if="request.status === 'pending_return' && isItAssistant"
+                color="blue"
+                size="large"
+                prepend-icon="mdi-magnify"
+                elevation="6"
+                :loading="processing"
+                @click="inspectDialog = true"
+              >
+                Inspect Return
+              </v-btn>
+              <v-btn
+                v-if="request.status === 'inspected_return' && isAdmin"
+                color="success"
+                size="large"
+                prepend-icon="mdi-check-bold"
+                elevation="6"
+                :loading="processing"
+                @click="openConfirmDialog('returned', 'Confirm Return', 'Confirm the return of the material?', 'success', CheckIcon)"
+              >
+                Confirm Return
+              </v-btn>
+              <div v-if="!isAdmin && !isItAssistant && !isRequester" class="text-medium-emphasis">
                 No actions available at this time.
               </div>
             </div>
           </v-card-text>
         </v-card>
-
         <!-- Activity Timeline -->
         <v-card elevation="12" class="rounded-xl">
           <v-card-title class="text-h6 font-weight-bold pa-6 bg-grey-lighten-4">
@@ -226,7 +230,6 @@
           </v-card-text>
         </v-card>
       </v-col>
-
       <!-- Right Column -->
       <v-col cols="12" lg="4">
         <v-card v-if="issueRecord" elevation="12" class="mb-6 rounded-xl">
@@ -241,7 +244,6 @@
             </p>
           </v-card-text>
         </v-card>
-
         <v-card v-if="returnRecord" elevation="12" class="rounded-xl">
           <v-card-title class="pa-6" style="background-color: purple; color: white;">
             Material Returned
@@ -258,7 +260,6 @@
         </v-card>
       </v-col>
     </v-row>
-
     <!-- Confirmation Dialog -->
     <v-dialog v-model="confirmDialog" max-width="480" persistent>
       <v-card>
@@ -278,7 +279,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
     <!-- Issue Dialog -->
     <v-dialog v-model="issueDialog" max-width="600">
       <v-card>
@@ -313,11 +313,10 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- Return Dialog -->
-    <v-dialog v-model="returnDialog" max-width="600">
+    <!-- Inspect Return Dialog -->
+    <v-dialog v-model="inspectDialog" max-width="600">
       <v-card>
-        <v-card-title class="text-h6 bg-purple text-white">Return Material</v-card-title>
+        <v-card-title class="text-h6 bg-blue text-white">Inspect Returned Material</v-card-title>
         <v-card-text class="pt-8">
           <v-select
             v-model="returnForm.it_condition_status"
@@ -333,14 +332,13 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="returnDialog = false">Cancel</v-btn>
-          <v-btn color="purple" :loading="processing" @click="returnMaterial">
-            Confirm Return
+          <v-btn variant="text" @click="inspectDialog = false">Cancel</v-btn>
+          <v-btn color="blue" :loading="processing" @click="inspectReturn">
+            Confirm Inspection
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -352,65 +350,52 @@
     </v-snackbar>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted, computed, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import { CheckIcon, XIcon, AlertTriangleIcon } from 'vue-tabler-icons'
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-
 const request = ref<any>(null)
 const issueRecord = ref<any>(null)
 const returnRecord = ref<any>(null)
 const timeline = ref<any[]>([])
-
 const loading = ref(true)
 const processing = ref(false)
 const issueDialog = ref(false)
-const returnDialog = ref(false)
+const inspectDialog = ref(false)
 const confirmDialog = ref(false)
-const confirmAction = ref<'approved' | 'rejected' | 'cancelled' | null>(null)
+const confirmAction = ref<string | null>(null)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmColor = ref('primary')
 const confirmIcon = ref<Component>(AlertTriangleIcon)
-
 const today = new Date().toISOString().slice(0, 10)
-
 const issueForm = ref({
   issued_date: today,
   expected_return_date: ''
 })
-
 const returnForm = ref({
   it_condition_status: 'Good' as 'Good' | 'Damaged' | 'Lost',
   it_remarks: ''
 })
-
 const snackbar = ref({
   show: false,
   message: '',
   color: 'success' as 'success' | 'error'
 })
-
 const showMessage = (msg: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, message: msg, color }
 }
-
 // Role & Ownership Helpers
 const userRole = computed(() => authStore.user?.role?.name?.toLowerCase() || 'employee')
 const currentUserId = computed(() => authStore.user?.id || 0)
-
 const isAdmin = computed(() => userRole.value === 'admin')
-const isManager = computed(() => userRole.value === 'manager')
-const canApproveOrReject = computed(() => isAdmin.value || isManager.value)
+const isItAssistant = computed(() => userRole.value === 'it assistant')
 const isRequester = computed(() => request.value?.requester?.id === currentUserId.value)
-
 // Date & Status Helpers
 const formatFullDate = (date: string | null) => {
   if (!date) return '—'
@@ -423,7 +408,6 @@ const formatFullDate = (date: string | null) => {
     minute: '2-digit'
   })
 }
-
 const formatDateOnly = (date: string) => {
   return new Date(date).toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -431,50 +415,51 @@ const formatDateOnly = (date: string) => {
     year: 'numeric'
   })
 }
-
 const isUrgent = (date: string) => {
   const diffDays = Math.ceil((new Date(date).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
   return diffDays >= 0 && diffDays <= 3
 }
-
 const getStatusColor = (status: string) => {
   const map: Record<string, string> = {
     pending: 'orange',
     approved: 'success',
     rejected: 'error',
     issued: 'info',
+    pending_return: 'warning',
+    inspected_return: 'blue',
     returned: 'purple',
     cancelled: 'grey-darken-1'
   }
   return map[status] || 'grey'
 }
-
 const getTimelineColor = (type: string) => {
   const map: Record<string, string> = {
     created: 'primary',
     approved: 'success',
     rejected: 'error',
     issued: 'info',
+    pending_return: 'warning',
+    inspected_return: 'blue',
     returned: 'purple',
     cancelled: 'grey-darken-2'
   }
   return map[type] || 'grey'
 }
-
 const getTimelineIcon = (type: string) => {
   const icons: Record<string, string> = {
     created: 'mdi-plus-circle',
     approved: 'mdi-check-bold',
     rejected: 'mdi-close-thick',
     issued: 'mdi-package-down',
-    returned: 'mdi-package-up',
+    pending_return: 'mdi-package-up',
+    inspected_return: 'mdi-magnify',
+    returned: 'mdi-check-circle',
     cancelled: 'mdi-cancel'
   }
   return icons[type] || 'mdi-circle-outline'
 }
-
 const openConfirmDialog = (
-  action: 'approved' | 'rejected' | 'cancelled',
+  action: string,
   title: string,
   message: string,
   color: string,
@@ -487,15 +472,22 @@ const openConfirmDialog = (
   confirmIcon.value = icon
   confirmDialog.value = true
 }
-
 const executeAction = async () => {
   if (!confirmAction.value || !request.value?.id) return
   processing.value = true
   try {
-    await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
-      status: confirmAction.value
-    })
-    showMessage(`Request ${confirmAction.value} successfully!`, 'success')
+    if (['approved', 'rejected', 'cancelled'].includes(confirmAction.value)) {
+      await axiosClient.patch(`/material-requests/${request.value.id}/status`, {
+        status: confirmAction.value
+      })
+      showMessage(`Request ${confirmAction.value} successfully!`, 'success')
+    } else if (confirmAction.value === 'pending_return') {
+      await axiosClient.post(`/material-requests/${request.value.id}/initiate-return`)
+      showMessage('Return initiated successfully!', 'success')
+    } else if (confirmAction.value === 'returned') {
+      await axiosClient.post(`/material-requests/${request.value.id}/confirm-return`)
+      showMessage('Return confirmed successfully!', 'success')
+    }
     confirmDialog.value = false
     await loadData()
   } catch (err: any) {
@@ -505,7 +497,6 @@ const executeAction = async () => {
     confirmAction.value = null
   }
 }
-
 const issueMaterial = async () => {
   if (!request.value?.id) return
   processing.value = true
@@ -524,32 +515,29 @@ const issueMaterial = async () => {
     processing.value = false
   }
 }
-
-const returnMaterial = async () => {
+const inspectReturn = async () => {
   if (!request.value?.id) return
   processing.value = true
   try {
-    await axiosClient.post(`/material-requests/${request.value.id}/return`, {
+    await axiosClient.post(`/material-requests/${request.value.id}/inspect-return`, {
       it_condition_status: returnForm.value.it_condition_status,
       it_remarks: returnForm.value.it_remarks
     })
-    showMessage('Material returned successfully!', 'success')
-    returnDialog.value = false
+    showMessage('Return inspected successfully!', 'success')
+    inspectDialog.value = false
     returnForm.value = { it_condition_status: 'Good', it_remarks: '' }
     await loadData()
   } catch (err: any) {
-    showMessage(err.response?.data?.message || 'Failed to record return', 'error')
+    showMessage(err.response?.data?.message || 'Failed to inspect return', 'error')
   } finally {
     processing.value = false
   }
 }
-
 // Load all data
 const loadData = async () => {
   loading.value = true
   try {
     const id = Number(route.params.id)
-
     const [
       reqRes,
       actionsRes,
@@ -561,15 +549,12 @@ const loadData = async () => {
       axiosClient.get('/material-issue-records'),
       axiosClient.get('/material-returns')
     ])
-
     const req = reqRes.data.data || reqRes.data
     if (!req) throw new Error('Request not found')
     request.value = req
-
     const actions = (actionsRes.data.data || actionsRes.data || []).filter((a: any) => a.request_id === id)
     issueRecord.value = (issuesRes.data.data || issuesRes.data || []).find((i: any) => i.request_id === id) || null
     returnRecord.value = (returnsRes.data.data || returnsRes.data || []).find((r: any) => r.request_id === id) || null
-
     // Build timeline - this is the source of truth for names
     timeline.value = [
       {
@@ -580,14 +565,14 @@ const loadData = async () => {
       },
       ...actions.map((a: any) => ({
         type: a.action_type,
-        title: a.action_type.charAt(0).toUpperCase() + a.action_type.slice(1),
+        title: a.action_type.charAt(0).toUpperCase() + a.action_type.slice(1).replace('_', ' '),
         by: a.actor?.name || 'System',
         date: a.created_at,
         remarks: a.remarks
       })),
       issueRecord.value && {
         type: 'issued',
-        title: 'Material physically issued',
+        title: 'Material Issued',
         by: issueRecord.value.issuedBy?.name || 'System',
         date: issueRecord.value.issued_date
       },
@@ -610,22 +595,18 @@ const loadData = async () => {
     loading.value = false
   }
 }
-
 // Get issuer name from timeline (same as log.by)
 const getIssuerName = computed(() => {
   const issuedLog = timeline.value.find(log => log.type === 'issued')
   return issuedLog?.by || '—'
 })
-
 // Get returner name from timeline (same as log.by)
 const getReturnerName = computed(() => {
   const returnedLog = timeline.value.find(log => log.type === 'returned')
   return returnedLog?.by || '—'
 })
-
 onMounted(loadData)
 </script>
-
 <style scoped>
 .rounded-xl { border-radius: 20px !important; }
 .gap-4 { gap: 1rem; }

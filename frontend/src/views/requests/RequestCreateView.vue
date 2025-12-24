@@ -9,12 +9,10 @@
               {{ isPreview ? 'Preview Your Request' : 'Create New Material Request' }}
             </div>
           </v-card-title>
-
           <!-- Loading Materials -->
           <div v-if="loadingMaterials" class="text-center py-16">
             <v-progress-circular indeterminate size="64" color="primary" />
           </div>
-
           <!-- Step 1: Form -->
           <v-card-text v-else-if="!isPreview" class="pa-8">
             <v-form @submit.prevent="goToPreview" ref="formRef">
@@ -47,7 +45,6 @@
                   </v-list-item>
                 </template>
               </v-select>
-
               <!-- Quantity -->
               <v-text-field
                 v-model.number="form.quantity"
@@ -60,7 +57,6 @@
                 :rules="quantityRules"
                 :disabled="!form.material_id"
               />
-
               <!-- Required By Date -->
               <v-text-field
                 v-model="form.receipt_date"
@@ -71,7 +67,6 @@
                 :min="today"
                 :rules="dateRules"
               />
-
               <!-- Purpose -->
               <v-textarea
                 v-model="form.purpose"
@@ -82,7 +77,6 @@
                 auto-grow
                 counter="1000"
               />
-
               <div class="d-flex justify-end gap-4 mt-8">
                 <v-btn variant="text" @click="router.back()" size="large">
                   Cancel
@@ -100,13 +94,11 @@
               </div>
             </v-form>
           </v-card-text>
-
           <!-- Step 2: Preview -->
           <v-card-text v-else class="pa-8">
             <div class="text-h6 font-weight-medium text-center mb-8 text-grey-darken-3">
               Please confirm your request details
             </div>
-
             <v-card variant="outlined" class="mb-8 pa-6">
               <v-table density="comfortable">
                 <tbody>
@@ -154,13 +146,11 @@
                 </tbody>
               </v-table>
             </v-card>
-
             <div class="d-flex justify-space-between">
               <v-btn variant="outlined" size="large" @click="isPreview = false">
                 <v-icon start>mdi-arrow-left</v-icon>
                 Back to Edit
               </v-btn>
-
               <v-btn
                 color="success"
                 size="large"
@@ -175,7 +165,6 @@
         </v-card>
       </v-col>
     </v-row>
-
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -191,53 +180,42 @@
     </v-snackbar>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
-
 const router = useRouter()
 const authStore = useAuthStore()
-
 if (!authStore.isLoggedIn) {
   router.push('/login')
 }
-
 const isPreview = ref(false)
 const saving = ref(false)
 const validating = ref(false)
 const loadingMaterials = ref(true)
 const materials = ref<any[]>([])
 const formRef = ref<any>(null)
-
 const today = new Date().toISOString().slice(0, 10)
-
 const form = ref({
   material_id: null as number | null,
   quantity: 1,
   receipt_date: today,
   purpose: ''
 })
-
 const selectedMaterial = computed(() =>
   materials.value.find(m => m.id === form.value.material_id)
 )
-
 const selectedStock = computed(() => selectedMaterial.value?.qty_remaining ?? 0)
-
 const quantityRules = [
   (v: any) => !!v || 'Quantity is required',
   (v: any) => v >= 1 || 'Minimum quantity is 1',
   (v: any) => v <= selectedStock.value || `Only ${selectedStock.value} unit(s) available`
 ]
-
 const dateRules = [
   (v: any) => !!v || 'Please select a date',
   (v: any) => new Date(v) >= new Date(today) || 'Date cannot be in the past'
 ]
-
 const isFormValid = computed(() => {
   return (
     form.value.material_id &&
@@ -247,18 +225,15 @@ const isFormValid = computed(() => {
     new Date(form.value.receipt_date) >= new Date(today)
   )
 })
-
 const getStockColor = (stock: number) => {
   if (stock === 0) return 'error'
   if (stock <= 5) return 'warning'
   return 'success'
 }
-
 const isUrgent = (date: string) => {
   const diffDays = Math.ceil((new Date(date).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
   return diffDays >= 0 && diffDays <= 3
 }
-
 const formatDateOnly = (date: string) => {
   return new Date(date).toLocaleDateString('en-GB', {
     weekday: 'short',
@@ -267,24 +242,20 @@ const formatDateOnly = (date: string) => {
     year: 'numeric'
   })
 }
-
 const snackbar = ref({
   show: false,
   message: '',
   color: 'success' as 'success' | 'error'
 })
-
 const showMsg = (msg: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, message: msg, color }
 }
-
 const resetQuantityIfInvalid = async () => {
   await nextTick()
   if (form.value.quantity > selectedStock.value) {
     form.value.quantity = Math.max(1, selectedStock.value)
   }
 }
-
 onMounted(async () => {
   try {
     const { data } = await axiosClient.get('/materials')
@@ -295,7 +266,6 @@ onMounted(async () => {
     loadingMaterials.value = false
   }
 })
-
 const goToPreview = async () => {
   validating.value = true
   try {
@@ -307,7 +277,6 @@ const goToPreview = async () => {
     validating.value = false
   }
 }
-
 const submitRequest = async () => {
   saving.value = true
   try {
@@ -317,7 +286,6 @@ const submitRequest = async () => {
       receipt_date: form.value.receipt_date,
       purpose: form.value.purpose || null
     })
-
     showMsg('Your material request has been submitted successfully!', 'success')
     setTimeout(() => router.push('/main/requests/list'), 2000)
   } catch (err: any) {
@@ -329,7 +297,6 @@ const submitRequest = async () => {
   }
 }
 </script>
-
 <style scoped>
 .gap-4 { gap: 16px; }
 .v-table tbody tr:hover {
