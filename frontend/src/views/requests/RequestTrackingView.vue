@@ -8,17 +8,35 @@
           Real-time monitoring of material requests and workflow
         </p>
       </div>
-      <v-btn
-        color="primary"
-        size="large"
-        @click="exportToCSV"
-        :loading="exporting"
-        elevation="8"
-      >
-        <DownloadIcon class="mr-2" :size="20" />
-        Export CSV
-      </v-btn>
+      <div class="d-flex align-center gap-4 flex-wrap">
+        <!-- Department Filter - Visible only for Admin/IT Assistant -->
+        <v-select
+          v-if="isPrivileged"
+          v-model="selectedDepartment"
+          :items="departments"
+          item-title="name"
+          item-value="id"
+          label="Filter by Department"
+          prepend-icon="mdi-domain"
+          clearable
+          variant="outlined"
+          density="comfortable"
+          class="min-width-300"
+          @update:model-value="loadRequests"
+        />
+        <v-btn
+          color="primary"
+          size="large"
+          @click="exportToCSV"
+          :loading="exporting"
+          elevation="8"
+        >
+          <DownloadIcon class="mr-2" :size="20" />
+          Export CSV
+        </v-btn>
+      </div>
     </div>
+
     <!-- Charts -->
     <v-row class="mb-8">
       <v-col cols="12" md="6">
@@ -56,6 +74,7 @@
         </v-card>
       </v-col>
     </v-row>
+
     <!-- Recent Requests Table -->
     <v-card elevation="10" class="bubble-shape overflow-hidden">
       <v-card-title class="pa-6 bg-grey-lighten-5 d-flex align-center justify-space-between">
@@ -73,7 +92,7 @@
         density="comfortable"
         :loading="loading"
       >
-        <!-- Requester (Admin/IT Assistant only) -->
+        <!-- Requester -->
         <template #item.requester="{ item }">
           <div class="d-flex align-center gap-3 py-3">
             <v-avatar size="40">
@@ -103,6 +122,7 @@
             </div>
           </div>
         </template>
+
         <!-- Material -->
         <template #item.material="{ item }">
           <div>
@@ -110,6 +130,7 @@
             <div class="text-caption text-medium-emphasis">Qty: {{ item.quantity }}</div>
           </div>
         </template>
+
         <!-- Status -->
         <template #item.status="{ item }">
           <v-chip
@@ -121,10 +142,12 @@
             {{ item.status }}
           </v-chip>
         </template>
+
         <!-- Date -->
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
         </template>
+
         <!-- Actions -->
         <template #item.actions="{ item }">
           <v-btn
@@ -139,34 +162,62 @@
     </v-card>
   </v-container>
 </template>
+
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import axiosClient from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import { DownloadIcon } from 'vue-tabler-icons'
 import VueApexCharts from 'vue3-apexcharts'
+
 const authStore = useAuthStore()
 const currentUserId = computed(() => authStore.user?.id || 0)
-// Fixed: Access role.name and normalize to lowercase
 const userRole = computed(() => authStore.user?.role?.name?.toLowerCase() || 'employee')
+const isPrivileged = computed(() => ['admin', 'it assistant'].includes(userRole.value))
+
 // State
 const requests = ref<any[]>([])
 const usersCache = ref<Map<number, any>>(new Map())
+
+// Departments: { id: number, name: string }, with 0 meaning "All Departments"
+interface Department {
+  id: number
+  name: string
+}
+const departments = ref<Department[]>([])
+const selectedDepartment = ref<number>(0) // 0 = All Departments
+
 const loading = ref(true)
 const exporting = ref(false)
-// Filtered requests based on role: Admin/IT Assistant see all, others own
+
+// Filtered requests
 const filteredRequests = computed(() => {
-  if (['admin', 'it assistant'].includes(userRole.value)) {
-    return requests.value
+  let list = requests.value
+
+  // Role filter: non-privileged see only own requests
+  if (!isPrivileged.value) {
+    list = list.filter(r => r.requester_id === currentUserId.value)
   }
-  return requests.value.filter(r => r.requester_id === currentUserId.value)
+
+  // Department filter: only apply if privileged and not "All"
+  if (isPrivileged.value && selectedDepartment.value !== 0) {
+    list = list.filter(r => {
+      const deptId = getRequester(r.requester_id)?.department?.id
+      return deptId === selectedDepartment.value
+    })
+  }
+
+  return list
 })
+
 const recentRequests = computed(() => filteredRequests.value.slice(0, 10))
-// Helper: Get user from cache
+
+// Get requester from cache
 const getRequester = (id: number) => {
-  return usersCache.value.get(id) || { name: 'Loading...', department: { name: '' } }
+  return usersCache.value.get(id) || { name: 'Loading...', department: { name: '—', id: null } }
 }
-// Fetch single user if not cached (only for admin/it assistant)
+
+// Fetch user if not in cache (privileged only)
 const fetchUser = async (userId: number) => {
   if (usersCache.value.has(userId)) return
   try {
@@ -175,18 +226,46 @@ const fetchUser = async (userId: number) => {
     usersCache.value.set(userId, user)
   } catch (err) {
     console.error(`Failed to load user ${userId}`, err)
-    usersCache.value.set(userId, { name: 'Unknown User', department: { name: '—' } })
+    usersCache.value.set(userId, { name: 'Unknown User', department: { name: '—', id: null } })
   }
 }
-// Load requests and users
-onMounted(async () => {
+
+// Load departments
+const loadDepartments = async () => {
+  if (!isPrivileged.value) {
+    departments.value = []
+    return
+  }
+  try {
+    const { data } = await axiosClient.get('/departments') // Adjust if your endpoint is different
+    const deptList = (data.data || data || []) as Department[]
+    departments.value = [
+      { id: 0, name: 'All Departments' },
+      ...deptList
+    ]
+  } catch (err) {
+    console.error('Failed to load departments', err)
+    departments.value = [{ id: 0, name: 'All Departments' }]
+  }
+}
+
+// Load requests (with optional department filter on server if supported)
+const loadRequests = async () => {
   try {
     loading.value = true
-    const { data } = await axiosClient.get('/material-requests')
+
+    // If you add backend support for ?department_id=, use it:
+    const params: any = {}
+    if (isPrivileged.value && selectedDepartment.value !== 0) {
+      params.department_id = selectedDepartment.value
+    }
+
+    const { data } = await axiosClient.get('/material-requests', { params })
     const list = (data.data || data || []) as any[]
     requests.value = list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    // Only fetch user details if admin or it assistant
-    if (['admin', 'it assistant'].includes(userRole.value)) {
+
+    // Load requester details for privileged users
+    if (isPrivileged.value) {
       const requesterIds = [...new Set(list.map(r => r.requester_id).filter(Boolean))]
       await Promise.all(requesterIds.map(id => fetchUser(id)))
     }
@@ -195,8 +274,14 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadDepartments()
+  await loadRequests()
 })
-// Table headers - hide Requester column for non-admin/it assistant
+
+// Table headers
 const baseHeaders = [
   { title: 'Requester', key: 'requester', sortable: false, width: '300' },
   { title: 'Material', key: 'material', sortable: false },
@@ -205,12 +290,11 @@ const baseHeaders = [
   { title: 'Date', key: 'created_at', width: '160' },
   { title: '', key: 'actions', sortable: false, align: 'end' as const, width: '60' }
 ]
+
 const visibleHeaders = computed(() => {
-  if (['admin', 'it assistant'].includes(userRole.value)) {
-    return baseHeaders
-  }
-  return baseHeaders.filter(h => h.key !== 'requester')
+  return isPrivileged.value ? baseHeaders : baseHeaders.filter(h => h.key !== 'requester')
 })
+
 // Status Donut Chart
 const statusChart = computed(() => {
   const list = filteredRequests.value
@@ -226,6 +310,7 @@ const statusChart = computed(() => {
   const labels = Object.keys(counts)
     .map(k => k.charAt(0).toUpperCase() + k.slice(1))
     .filter((_, i) => Object.values(counts)[i] > 0)
+
   return {
     series,
     options: {
@@ -249,24 +334,23 @@ const statusChart = computed(() => {
           }
         }
       },
-      responsive: [{
-        breakpoint: 480,
-        options: { legend: { position: 'bottom' } }
-      }]
+      responsive: [{ breakpoint: 480, options: { legend: { position: 'bottom' } } }]
     }
   }
 })
-// Weekly Trend (Last 7 days real data)
+
+// Trend Chart
 const trendChart = computed(() => {
-  const days = []
-  const data = []
+  const days: string[] = []
+  const data: number[] = []
   const now = new Date()
   now.setHours(0, 0, 0, 0)
+
   for (let i = 6; i >= 0; i--) {
     const date = new Date(now)
     date.setDate(date.getDate() - i)
     days.push(date.toLocaleDateString('en-US', { weekday: 'short' }))
-   
+
     const count = filteredRequests.value.filter(r => {
       const reqDate = new Date(r.created_at)
       reqDate.setHours(0, 0, 0, 0)
@@ -274,6 +358,7 @@ const trendChart = computed(() => {
     }).length
     data.push(count)
   }
+
   return {
     series: [{ name: 'Requests', data }],
     options: {
@@ -287,7 +372,8 @@ const trendChart = computed(() => {
     }
   }
 })
-// Status chip color
+
+// Helpers
 const getStatusColor = (status: string) => {
   const map: Record<string, string> = {
     pending: 'orange',
@@ -299,7 +385,7 @@ const getStatusColor = (status: string) => {
   }
   return map[status] || 'grey'
 }
-// Date formatting
+
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
@@ -309,10 +395,12 @@ const formatDate = (date: string) => {
     minute: '2-digit'
   })
 }
-// CSV Export (filtered by role)
+
+// CSV Export
 const exportToCSV = () => {
   exporting.value = true
   const escapeCSV = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`
+
   const rows = [
     ['Requester', 'Email', 'Department', 'Material', 'Quantity', 'Purpose', 'Status', 'Required By', 'Date Created'],
     ...filteredRequests.value.map(r => {
@@ -330,6 +418,7 @@ const exportToCSV = () => {
       ].map(escapeCSV)
     })
   ]
+
   const csvContent = rows.map(row => row.join(',')).join('\n')
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -344,8 +433,12 @@ const exportToCSV = () => {
   exporting.value = false
 }
 </script>
+
 <style scoped>
 .bubble-shape {
   border-radius: 28px !important;
+}
+.min-width-300 {
+  min-width: 300px;
 }
 </style>

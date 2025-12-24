@@ -83,7 +83,6 @@
             <template #item.requester="{ item }">
               <div>
                 <div class="font-weight-medium">{{ item.requester?.name || 'Unknown' }}</div>
-                <div class="text-caption text-medium-emphasis">{{ item.requester?.email }}</div>
               </div>
             </template>
             <!-- Created At -->
