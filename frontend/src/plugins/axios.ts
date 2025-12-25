@@ -1,4 +1,3 @@
-// src/plugins/axios.ts
 import axios from "axios";
 import { useAuthStore } from "@/stores/auth";
 
@@ -8,33 +7,48 @@ const axiosClient = axios.create({
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   },
-  withCredentials: false, // Pure Bearer token mode
+  withCredentials: false,
 });
 
-// INTERCEPTOR: Handle FormData + Add Bearer Token
-axiosClient.interceptors.request.use((config) => {
-  const authStore = useAuthStore();
+let isLoggingOut = false;
 
-  // Fix: Let browser set correct Content-Type for file uploads
-  if (config.data instanceof FormData) {
-    delete config.headers["Content-Type"];
+axiosClient.interceptors.request.use((config) => {
+  const auth = useAuthStore();
+
+  // token may be string | null → narrow safely
+  const token = auth.token ?? localStorage.getItem("token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Add Bearer token if exists
-  if (authStore.token) {
-    config.headers.Authorization = `Bearer ${authStore.token}`;
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
   }
 
   return config;
 });
 
-// INTERCEPTOR: Auto logout on 401
 axiosClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      useAuthStore().logout();
+  (res) => res,
+  async (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url ?? "";
+    const auth = useAuthStore();
+
+    if (status === 401 && !isLoggingOut) {
+      const ignore = ["/login", "/register", "/logout"];
+
+      if (!ignore.some((p) => url.includes(p))) {
+        isLoggingOut = true;
+        try {
+          await auth.logout();
+        } finally {
+          isLoggingOut = false;
+        }
+      }
     }
+
     return Promise.reject(error);
   }
 );

@@ -1,40 +1,53 @@
 import { createVuetify } from 'vuetify';
-import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
-import { icons } from './mdi-icon'; // Import icons from separate file
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
+
+// ✅ Correct import: mdi (font-based), NOT mdi-svg
+import { aliases, mdi } from 'vuetify/iconsets/mdi';
+
+// Your custom icons (if you have any)
+import { icons } from './mdi-icon';
+
+// Your theme
 import { PurpleTheme } from '@/theme/LightTheme';
 
-export default createVuetify({
+// ✅ Important: Import the MDI font CSS
+import '@mdi/font/css/materialdesignicons.css';
+
+const vuetify = createVuetify({
   components,
   directives,
+
   icons: {
     defaultSet: 'mdi',
     aliases: {
       ...aliases,
-      ...icons
+      ...icons, // Keeps your custom icons working
     },
     sets: {
-      mdi
-    }
+      mdi, // Font-based iconset
+    },
   },
+
   theme: {
     defaultTheme: 'PurpleTheme',
     themes: {
-      PurpleTheme
-    }
+      PurpleTheme,
+    },
   },
+
   defaults: {
     VBtn: {},
     VCard: {
-      rounded: 'md'
+      rounded: 'md',
     },
     VTextField: {
-      rounded: 'lg'
+      rounded: 'lg',
     },
     VTooltip: {
-      // set v-tooltip default location to top
-      location: 'top'
-    }
-  }
+      location: 'top',
+    },
+  },
 });
+
+export default vuetify;

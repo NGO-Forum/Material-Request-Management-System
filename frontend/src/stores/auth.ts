@@ -1,7 +1,6 @@
-// src/stores/auth.ts
-import { defineStore } from 'pinia';
-import router from '@/router';
-import axiosClient from '@/plugins/axios';
+import { defineStore } from "pinia";
+import router from "@/router";
+import axiosClient from "@/plugins/axios";
 
 export interface User {
   id: number;
@@ -10,127 +9,120 @@ export interface User {
   image_profile?: string | null;
   role?: { id: number; name: string };
   department?: any;
-  [key: string]: any;
 }
 
-export const useAuthStore = defineStore({
-  id: 'auth',
+export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null as User | null,
-    token: localStorage.getItem('token') || null,
+    token: (localStorage.getItem("token") as string | null) ?? null,
     returnUrl: null as string | null,
   }),
+
   getters: {
-    isLoggedIn: (state) => !!state.token && !!state.user,
-    currentUser: (state) => state.user,
-    userRole: (state) => state.user?.role?.name || '',
+    isLoggedIn: (s) => Boolean(s.token && s.user),
+    userRole: (s) => s.user?.role?.name ?? "",
   },
+
   actions: {
-    // --------------------------
     // LOGIN
-    // --------------------------
-    async login(email: string, password: string) {
-      try {
-        const response = await axiosClient.post('/login', { email, password });
-        const { token, data: user } = response.data;
+    async login(email: string, password: string): Promise<void> {
+      const res = await axiosClient.post("/login", { email, password });
 
-        this.token = token;
-        this.user = user;
+      const token: string = res.data.token;
+      const user: User = res.data.data;
 
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
+      this.token = token;
+      this.user = user;
 
-        this.redirectAfterLogin();
-      } catch (error: any) {
-        const msg = error.response?.data?.message || 'Login failed';
-        throw new Error(msg);
-      }
+      // store only when token is guaranteed string
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      await this.redirectAfterLogin();
     },
 
-    // --------------------------
     // REGISTER
-    // --------------------------
     async register(formData: FormData) {
+      const res = await axiosClient.post("/register", formData);
+
+      const token: string = res.data.token;
+      const user: User = res.data.data;
+
+      this.token = token;
+      this.user = user;
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      await this.redirectAfterLogin();
+
+      return res;
+    },
+
+    // FETCH AUTH USER
+    async fetchUser(): Promise<void> {
       try {
-        const response = await axiosClient.post('/register', formData);
-        const { token, user } = response.data;
-
-        // Automatically log in after registration
-        this.token = token;
-        this.user = user;
-
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        this.redirectAfterLogin();
-        return response;
-      } catch (error: any) {
-        const msg = error.response?.data?.message || 'Registration failed';
-        throw error; // Let the component handle validation errors
+        const res = await axiosClient.get("/me");
+        this.user = res.data;
+        localStorage.setItem("user", JSON.stringify(res.data));
+      } catch {
+        await this.logout();
       }
     },
 
-    // --------------------------
-    // FETCH CURRENT USER
-    // --------------------------
-    async fetchUser() {
-      try {
-        const response = await axiosClient.get('/me');
-        this.user = response.data;
-        localStorage.setItem('user', JSON.stringify(response.data));
-      } catch (error) {
-        this.logout();
-      }
-    },
-
-    // --------------------------
     // LOGOUT
-    // --------------------------
-    logout() {
+    async logout(): Promise<void> {
+      try {
+        await axiosClient.post("/logout");
+      } catch {
+        // ignore expired token
+      }
+
       this.user = null;
       this.token = null;
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      axiosClient.post('/logout').catch(() => {});
-      router.push('/login');
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      router.push("/login");
     },
 
-    // --------------------------
-    // INITIALIZE AUTH
-    // --------------------------
-    initializeAuth() {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
+    // RESTORE SESSION
+    initializeAuth(): void {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
       if (token && userData) {
         this.token = token;
+
         try {
-          this.user = JSON.parse(userData);
+          this.user = JSON.parse(userData) as User;
         } catch {
           this.logout();
         }
       }
     },
 
-    // --------------------------
-    // REDIRECT AFTER LOGIN / REGISTER
-    // --------------------------
-    redirectAfterLogin() {
-      if (!this.user) return router.push('/login');
+    // REDIRECT AFTER LOGIN
+    async redirectAfterLogin(): Promise<void> {
+      if (!this.user) {
+        router.push("/login");
+        return;
+      }
 
       if (this.returnUrl) {
-        const path = this.returnUrl;
+        const redirectPath = this.returnUrl; // narrowed to string
         this.returnUrl = null;
-        return router.push(path);
+        router.push(redirectPath);
+        return;
       }
 
       const role = this.user.role?.name;
-      if (role === 'Admin') {
-        router.push('/main/dashboard/default');
-      } else if (role === 'Manager' || role === 'Employee') {
-        router.push('/main/requests/list');
+
+      if (role === "Admin") {
+        router.push("/main/dashboard/default");
       } else {
-        router.push('/main/requests/list'); // default for unknown roles
+        router.push("/main/requests/list");
       }
     },
   },

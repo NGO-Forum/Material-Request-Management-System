@@ -22,21 +22,25 @@ Route::prefix('v1')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
 
-    Route::apiResource('roles', RoleController::class);
-    Route::apiResource('departments', DepartmentController::class);
+    // Roles & Departments can be public if needed
+    Route::apiResource('roles', RoleController::class)->only(['index', 'show']);
+    Route::apiResource('departments', DepartmentController::class)->only(['index', 'show']);
 });
 
+// Protected routes (Auth required)
 Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // Auth
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
 
-    // Users, Materials
+    // Users (admin only)
     Route::apiResource('users', UserController::class);
+
+    // Materials & Categories
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('materials', MaterialController::class);
 
-    // Material Requests - Main CRUD + Issue/Return
+    // Material Requests CRUD + Actions
     Route::apiResource('material-requests', MaterialRequestController::class);
     Route::patch('material-requests/{id}/status', [MaterialRequestController::class, 'updateStatus']);
     Route::post('material-requests/{id}/issue', [MaterialRequestController::class, 'issue']);
@@ -44,7 +48,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('material-requests/{id}/inspect-return', [MaterialRequestController::class, 'inspectReturn']);
     Route::post('material-requests/{id}/confirm-return', [MaterialRequestController::class, 'confirmReturn']);
 
-    // Supporting resources (read-only recommended)
+    // Supporting read-only resources
     Route::get('material-request-actions', [MaterialRequestActionController::class, 'index']);
     Route::get('material-issue-records', [MaterialIssueRecordController::class, 'index']);
     Route::get('material-returns', [MaterialReturnController::class, 'index']);
