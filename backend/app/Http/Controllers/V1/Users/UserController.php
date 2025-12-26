@@ -12,14 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    /**
-     * Get all users
-     */
     public function index()
     {
         $users = User::with(['role', 'department'])->get();
 
-        // Add full image URL
+        // Return full image URL
         $users->transform(function ($user) {
             $user->image_profile = $user->image_profile ? url('/storage/' . $user->image_profile) : null;
             return $user;
@@ -28,25 +25,16 @@ class UserController extends Controller
         return response()->json($users, 200);
     }
 
-    /**
-     * Create new user
-     */
     public function store(Request $request)
     {
         return $this->saveUser($request);
     }
 
-    /**
-     * Update existing user
-     */
     public function update(Request $request, $id)
     {
         return $this->saveUser($request, $id);
     }
 
-    /**
-     * Common save logic for create & update
-     */
     private function saveUser(Request $request, $id = null)
     {
         $isUpdate = !is_null($id);
@@ -69,9 +57,7 @@ class UserController extends Controller
         $adminRole = Role::where('name', 'Admin')->first();
         if ($adminRole && $validated['role_id'] == $adminRole->id) {
             $existingAdmin = User::where('role_id', $adminRole->id);
-            if ($isUpdate) {
-                $existingAdmin->where('id', '!=', $id);
-            }
+            if ($isUpdate) $existingAdmin->where('id', '!=', $id);
             if ($existingAdmin->exists()) {
                 throw ValidationException::withMessages([
                     'role_id' => 'Only one Admin user is allowed.'
@@ -79,7 +65,7 @@ class UserController extends Controller
             }
         }
 
-        // Handle password
+        // Hash password if provided
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -95,7 +81,6 @@ class UserController extends Controller
                 }
             }
 
-            // Store new image on public disk
             $path = $request->file('image_profile')->store('user_profiles', 'public');
             $validated['image_profile'] = $path; // store relative path
         }
@@ -105,7 +90,6 @@ class UserController extends Controller
             $user->update($validated);
             $user->load('role', 'department');
             $user->image_profile = $user->image_profile ? url('/storage/' . $user->image_profile) : null;
-
             return response()->json([
                 'message' => 'User updated successfully',
                 'data' => $user
@@ -114,7 +98,6 @@ class UserController extends Controller
             $user = User::create($validated);
             $user->load('role', 'department');
             $user->image_profile = $user->image_profile ? url('/storage/' . $user->image_profile) : null;
-
             return response()->json([
                 'message' => 'User created successfully',
                 'data' => $user
@@ -122,20 +105,13 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * Show single user
-     */
     public function show($id)
     {
         $user = User::with(['role', 'department'])->findOrFail($id);
         $user->image_profile = $user->image_profile ? url('/storage/' . $user->image_profile) : null;
-
         return response()->json($user, 200);
     }
 
-    /**
-     * Delete user
-     */
     public function destroy($id)
     {
         $user = User::findOrFail($id);
@@ -156,7 +132,6 @@ class UserController extends Controller
         }
 
         $user->delete();
-
         return response()->json(['message' => 'User deleted successfully'], 200);
     }
 }
