@@ -38,9 +38,9 @@ const items = shallowRef([
         </div>
       </div>
       <h2 class="text-h1 font-weight-medium">
-        $500.00 <a href="#"><CircleArrowUpRightIcon stroke-width="1.5" width="28" class="text-white" /> </a>
+        30<a href="#"><CircleArrowUpRightIcon stroke-width="1.5" width="28" class="text-white" /> </a>
       </h2>
-      <span class="text-subtitle-1 text-medium-emphasis text-white">Total Earning</span>
+      <span class="text-subtitle-1 text-medium-emphasis text-white">Total Requests</span>
     </v-card-text>
   </v-card>
 </template>

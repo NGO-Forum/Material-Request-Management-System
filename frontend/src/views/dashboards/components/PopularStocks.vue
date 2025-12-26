@@ -55,29 +55,29 @@ const lineChart1 = {
 
 const revenues = ref([
   {
-    name: 'Bajaj Finery',
-    price: 145.58,
-    profit: 10
+    name: 'Laptop',
+    price: 560,
+    left: 25
   },
   {
-    name: 'TTML',
-    price: 6.368,
-    profit: 10
+    name: 'Keyboard',
+    price: 10,
+    left: 30
   },
   {
-    name: 'Reliance',
-    price: 458.63,
-    profit: 10
+    name: 'Camera',
+    price: 450,
+    left: 2
   },
   {
-    name: 'TTML',
-    price: 5.631,
-    profit: 10
+    name: 'Mouse',
+    price: 10,
+    left: 30
   },
   {
-    name: 'Stolon',
-    price: 6.368,
-    profit: 10
+    name: 'Tablet',
+    price: 350,
+    left: 4
   }
 ]);
 </script>
@@ -116,10 +116,10 @@ const revenues = ref([
           <div class="pa-5">
             <div class="d-flex align-start justify-space-between">
               <div>
-                <h6 class="text-secondary text-h5">Bajaj Finery</h6>
-                <span class="text-subtitle-2 text-medium-emphasis font-weight-bold">10% Profit</span>
+                <h6 class="text-secondary text-h5">Total Materials</h6>
+                <span class="text-subtitle-2 text-medium-emphasis font-weight-bold">91 left</span>
               </div>
-              <h4 class="text-h4">$1839.00</h4>
+              <h4 class="text-h4">91</h4>
             </div>
           </div>
           <apexchart type="area" height="95" :options="chartOptions1" :series="lineChart1.series"> </apexchart>
@@ -145,8 +145,8 @@ const revenues = ref([
                     <h6 class="text-subtitle-1 text-medium-emphasis font-weight-bold">
                       {{ revenue.name }}
                     </h6>
-                    <span v-if="revenue.price > 145" class="text-success text-subtitle-2">{{ revenue.profit }}% Profit</span>
-                    <span v-else class="text-error text-subtitle-2">{{ revenue.profit }}% Profit</span>
+                    <span v-if="revenue.price > 145" class="text-success text-subtitle-2">{{ revenue.left }} left</span>
+                    <span v-else class="text-error text-subtitle-2">{{ revenue.left }} left</span>
                   </div>
 
                   <div class="ml-auto text-subtitle-1 text-medium-emphasis font-weight-bold">${{ revenue.price }}</div>
